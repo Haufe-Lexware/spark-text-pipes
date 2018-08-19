@@ -1,0 +1,162 @@
+version: '3'
+
+services:
+  master:
+    image: spark-master
+    build: ./docker/master
+    container_name: master
+    ports:
+      - "8080:8080"
+      - "7077:7077"
+      - "80:80"
+    environment:
+      MASTER: ${MASTER:-spark://master:7077}
+      INIT_DAEMON_STEP: setup_spark
+      SPARK_CONF_DIR: /conf
+    networks:
+      - ds
+    volumes:
+      - ${PWD}/../data/scala_history:/root/.scala_history
+      - ./conf/master:/conf
+      - ../data:/data
+      - ../apps:/apps
+
+  worker:
+    image: spark-worker
+    build: ./docker/worker
+    container_name: worker
+    depends_on:
+      - master
+    ports:
+      - "8081:8081"
+    environment:
+      - "SPARK_MASTER=spark://master:7077"
+      - SPARK_CONF_DIR=/conf
+    networks:
+      - ds
+    volumes:
+      - ./conf/worker:/conf
+      - ../data:/data
+      - ../apps:/apps
+
+  zeppelin:
+    image: apache/zeppelin:0.8.0
+    container_name: zeppelin
+    hostname: zeppelin
+    networks:
+      - ds
+    environment:
+      ZEPPELIN_PORT: 8090
+      MASTER: spark://master:7077
+      ZEPPELIN_LOG_DIR: "/logs"
+      ZEPPELIN_NOTEBOOK_DIR: "/notebook"
+      ZEPPELIN_WEBSOCKET_MAX_TEXT_MESSAGE_SIZE: 102400000
+      ZEPPELIN_INTERPRETER_OUTPUT_LIMIT: 10240000
+      SPARK_HOME: /spark/
+      SPARK_CONF_DIR: /conf
+    links:
+      - master
+    expose:
+      - 5432
+    ports:
+      - 8090:8090
+      - 8091:8091
+    volumes:
+      - ../data:/data
+      - ../apps:/apps
+      - ../zeppelin/logs:/logs
+      - ../zeppelin/notebook:/notebook
+      - ./conf/zeppelin:/conf
+
+
+  zookeeper:
+    container_name: zookeeper
+    image: confluentinc/cp-zookeeper:4.0.0
+    ports:
+    - "2181:2181"
+    hostname: zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks:
+    - ds
+
+  kafka:
+    container_name: kafka
+    image: confluentinc/cp-kafka:4.0.0
+    hostname: kafka
+    ports:
+    - "9092"
+    - "9091:9091"
+    links:
+    - zookeeper
+    depends_on:
+    - zookeeper
+    environment:
+      ADVERTISED_HOST_NAME: "kafka"
+      KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_ADVERTISED_LISTENERS: "EXTERNAL://kafka:9091,PLAINTEXT://kafka:9092"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_DELETE_RETENTION_MS: 5000
+      KAFKA_LOG_CLEANER_DELETE_RETENTION_MS: 5000
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    networks:
+    - ds
+
+  schema_registry:
+    container_name: schema_registry
+    image: confluentinc/cp-schema-registry:4.0.0
+    ports:
+    - "8181:8081"
+    links:
+    - zookeeper
+    - kafka
+    depends_on:
+    - zookeeper
+    - kafka
+    environment:
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+    networks:
+    - ds
+
+  kafka_connect:
+    container_name: kafka_connect
+    image: confluentinc/cp-kafka-connect:4.0.0
+    ports:
+    - "8083:8083"
+    links:
+    - zookeeper
+    - kafka
+    - schema_registry
+    depends_on:
+    - zookeeper
+    - kafka
+    - schema_registry
+    environment:
+      # networking
+      CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka_connect"
+      CONNECT_REST_PORT: "8083"
+      # kafka
+      CONNECT_GROUP_ID: "kc"
+      CONNECT_CONFIG_STORAGE_TOPIC: "kc-config"
+      CONNECT_OFFSET_STORAGE_TOPIC: "kc-offset"
+      CONNECT_STATUS_STORAGE_TOPIC: "kc-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # convertors
+      CONNECT_KEY_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema_registry:8081"
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema_registry:8081"
+      CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+      CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
+    networks:
+    - ds
+
+
+networks:
+  ds:
+    external: true
