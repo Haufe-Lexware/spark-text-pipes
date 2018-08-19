@@ -1,0 +1,11 @@
+.idea/
+target/
+project/project
+project/target
+.cache-main
+.classpath
+.project
+.cache-tests
+.settings/
+/CoreNLP/
+/maven/
