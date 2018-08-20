@@ -57,6 +57,7 @@ class TopicSourceKafkaSink(
           .writeStream
           .format("kafka")
           .options(options)
+          .trigger(conf.kafkaTopic.trigger)
           .start()
 
         Some(s)

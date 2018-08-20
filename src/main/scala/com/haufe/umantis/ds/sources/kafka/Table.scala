@@ -17,6 +17,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.streaming.Trigger
 
 /**
   * Defines a helper class to perform specific transformations to DataFrames obtained by Kafka.
@@ -25,6 +26,7 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
   * @param transformation The transformation to apply
   * @param version The version of the topic
   * @param refreshTime The refresh time (in seconds) after which the parquet file is re-read.
+  * @param trigger The trigger for Spark Streaming
   */
 case class Table(
   name: String,
@@ -34,8 +36,9 @@ case class Table(
 
   // for avro keys
   uniqueEntityKey: Option[UserDefinedFunction] =
-    Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF)
+    Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF),
 
   // for non-avro key (String)
   // uniqueEntityKey: UserDefinedFunction = UniqueIdentityKeys.EntityAndTimestampFromStringKeyUDF
+  trigger: Trigger = Trigger.ProcessingTime(0)
 )

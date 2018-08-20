@@ -16,6 +16,7 @@
 package com.haufe.umantis.ds.sources.kafka
 
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
+import org.apache.spark.sql.streaming.Trigger
 
 import scala.collection.parallel.immutable.ParMap
 
@@ -31,7 +32,8 @@ import scala.collection.parallel.immutable.ParMap
 abstract class KafkaSources[T <: TopicSourceParquetSink]
 (
   val kafkaConf: KafkaConf,
-  val defaultRefreshTime: Int = 5 /* in seconds */
+  val defaultRefreshTime: Int = 5, /* in seconds */
+  val defaultTrigger: Trigger = Trigger.ProcessingTime(0)
 )
 extends Source with SparkIO with SourceCollection[T]
   with DataFrameHelpers with KafkaTopicDataFrameHelper
@@ -41,7 +43,7 @@ extends Source with SparkIO with SourceCollection[T]
   val payLoadField = "value"
 
   def getTopicName(table: Table): TopicName = {
-    new GenericTopicName(table.name, payLoadField, table.uniqueEntityKey)
+    new GenericTopicName(table.name, payLoadField, table.uniqueEntityKey, table.trigger)
   }
 
   def createTopic(conf: TopicConf): T
