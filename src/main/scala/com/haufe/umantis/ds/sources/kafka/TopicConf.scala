@@ -19,6 +19,7 @@ import com.haufe.umantis.ds.spark.SparkIO
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
+import org.apache.spark.sql.streaming.Trigger
 
 
 /**
@@ -40,6 +41,7 @@ abstract class TopicName() {
   def topic: String
   def payloadField: String
   def uniqueEntityKey: Option[UserDefinedFunction]
+  def trigger: Trigger
 }
 
 /**
@@ -48,11 +50,13 @@ abstract class TopicName() {
   * @param topic The topic name
   * @param payloadField The name of the payloadField in Kafka
   * @param uniqueEntityKey The UDF to render the key unique for each entity
+  * @param trigger The trigger for Spark Streaming
   */
 class GenericTopicName(
                         val topic: String,
                         val payloadField: String,
-                        val uniqueEntityKey: Option[UserDefinedFunction]
+                        val uniqueEntityKey: Option[UserDefinedFunction],
+                        val trigger: Trigger = Trigger.ProcessingTime(0)
                       )
   extends TopicName
 
@@ -119,7 +123,8 @@ case class ParquetSinkConf(
   *
   * @param kafkaConf The kafka configuration
   * @param kafkaTopic The kafka topic configuration
-  * @param parquetSink The sink configuration
+  * @param parquetSink The parquet sink configuration
+  * @param kafkaTopicSink The kafka sink configuration
   */
 case class TopicConf(
                       kafkaConf: KafkaConf,

@@ -44,12 +44,25 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df.select(flattenSchema(df.schema, prefix):_*)
     }
 
+    /**
+      * Expands a column while keeping all the other ones.
+      * @param column The column to expand
+      * @return The modified DataFrame
+      */
+    def expand(column: String): DataFrame = {
+      val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
+      df.select(wantedColumns.map(col):_*)
+    }
+
     def emptyDfWithSameSchema: DataFrame = {
       currentSparkSession.createDataFrame(currentSparkSession.sparkContext.emptyRDD[Row], df.schema)
     }
 
-    def sanitizeColumnNames: DataFrame = {
-      val cleanColNames = df.columns.map(c => """[^\p{Ll}\p{Lu}0-9]""".r.replaceAllIn(c, ""))
+    def sanitizeColumnNames(replacement: String = ""): DataFrame = {
+      val cleanColNames = df
+        .columns
+        .map(c => """[^\p{Ll}\p{Lu}0-9]""".r.replaceAllIn(c, replacement))
+
       df.toDF(cleanColNames:_*)
     }
 

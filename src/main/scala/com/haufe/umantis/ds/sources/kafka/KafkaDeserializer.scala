@@ -19,7 +19,6 @@ import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import com.haufe.umantis.ds.spark.DataFrameHelpers
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.col
 
 import scala.util.Try
 
@@ -75,27 +74,5 @@ class KafkaDeserializer(conf: TopicConf) {
         case _ => dfTmp.byteArrayToString(valueColumn)
       }
     }
-
-    /**
-      * Expands a column while keeping all the other ones.
-      * @param column The column to expand
-      * @return The modified DataFrame
-      */
-    def expand(column: String): DataFrame = {
-      val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
-      df.select(wantedColumns.map(col):_*)
-    }
-
-//    /**
-//      * If the value is serialized with Avro, we expand it.
-//      * @param column The column to expand
-//      * @return The modified DataFrame
-//      */
-//    def expand(column: String): DataFrame = {
-//      avroValueDeserializer match {
-//        case Some(_) => df.selectKafkaColsAnd(column)
-//        case _ => df
-//      }
-//    }
   }
 }

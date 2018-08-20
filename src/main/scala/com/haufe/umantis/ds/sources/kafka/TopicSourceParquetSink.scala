@@ -19,7 +19,6 @@ package com.haufe.umantis.ds.sources.kafka
 
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import org.apache.spark.sql.streaming.Trigger
 import org.apache.spark.sql.{AnalysisException, DataFrame}
 
 import scala.collection.mutable
@@ -66,6 +65,8 @@ extends TopicSource(conf)
     this
   }
 
+  var sinkProcessingThread: Option[Thread] = None
+
   /**
     * Start the processing of this topic
     */
@@ -79,15 +80,19 @@ extends TopicSource(conf)
 
       sink =
         try {
-          import scala.concurrent.duration._
-
           val s = getSource("earliest")//startingOffset)
             .writeStream
             .outputMode("append")
             .option("checkpointLocation", conf.filePathCheckpoint)
             .format("parquet")
-//            .trigger(Trigger.ProcessingTime(300.seconds))
+            .trigger(conf.kafkaTopic.trigger)
             .start(conf.filePath)
+
+          val t = new Thread {
+            override def run(): Unit = s.awaitTermination()
+          }
+          t.start()
+          sinkProcessingThread = Some(t)
 
           Some(s)
         } catch {
@@ -109,6 +114,17 @@ extends TopicSource(conf)
       sink match {
         case Some(s) =>
           s.stop()
+          sinkProcessingThread match {
+            case Some(t) =>
+              println("waiting")
+              while(t.isAlive) {
+                t.wait()
+                Thread.sleep(10)
+              }
+
+            case _ =>
+              println("not waiting")
+          }
           sink = None
           dataFrame = None
         case _ => ;
