@@ -20,6 +20,8 @@ import java.util.stream.Collectors
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigRenderOptions}
 
+import scala.util.Try
+
 
 trait ConfigGetter {
   def getConfig(filename: String): Config = {
@@ -65,6 +67,10 @@ trait ConfigGetter {
         .root()
         .render(ConfigRenderOptions.concise())
     }
+  }
+
+  def boolConf(config: Config, key: String): Boolean = {
+    Try(config.getString(key).toBoolean).getOrElse(false)
   }
 }
 
