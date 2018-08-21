@@ -143,7 +143,7 @@ class EmbeddingsDictClient(
         textColumns.flatMap(textCol => {
           // all words for each columnName in input
           df.filter(col(textCol.language) === lang).flatMap(
-            r => r.getAs[Seq[String]](textCol.cleanWords).map(_.toLowerCase)
+            r => Try(r.getAs[Seq[String]](textCol.cleanWords).map(_.toLowerCase)).getOrElse(Seq())
           )
             .collect
             .toSet
