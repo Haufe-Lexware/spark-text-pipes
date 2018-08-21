@@ -196,7 +196,14 @@ class EmbeddingsDictClient(
   : Option[Array[Float]] = {
     val actorName = if (serialDictImpl) s"${language}_serial" else language
     val future = getRemoteDict(actorName) ? WordVectorQuery(word)
-    val vec = Await.result(future, timeout.duration).asInstanceOf[VectorResponse].vector
+    val vec = try {
+      Await.result(future, timeout.duration).asInstanceOf[VectorResponse].vector
+    } catch {
+      case e: java.util.concurrent.TimeoutException =>
+        print(s"### TIMEOUT in queryRemote($language, $word)")
+        e.printStackTrace()
+        throw e
+    }
     cache(language.manualIntern())(word.manualIntern()) = vec
     vec
   }
