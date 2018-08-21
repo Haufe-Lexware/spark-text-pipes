@@ -160,18 +160,28 @@ docker exec -it --env COLUMNS=`tput cols` --env LINES=`tput lines` master bash -
 ```
  
 ### Testing from command line
-Inside a docker container with access to all necessary docker container dependencies, download
-the source code in, e.g. `$ROOT_DIR/apps/`, and run 
+Inside a docker container with access to all necessary docker container dependencies, 
+assuming your `$ROOT_DIR/apps/` is `/apps/`,
+
 ```bash
-env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -mem 20000 test
+cd /apps/scripts/py-kafka-avro-console
+pip3 install -r requirements.txt 
+cd /apps/
+git clone https://github.com/Haufe-Lexware/spark-text-pipes.git
+cd spark-text-pipes
+``` 
+
+#### Running all tests
+```bash
+env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -ivy /apps/ivy -mem 20000 test
 ```
 
-#### Executing just a subset of the tests
+#### Running just a subset of the tests
 ```bash
-env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -mem 8000 "test:testOnly *TopicSource*"
+env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -ivy /apps/ivy -mem 8000 "test:testOnly *TopicSource*"
 ```
 
-### Run from idea
+### Running tests from idea
 Setup environment variables
 
 ```bash

@@ -33,8 +33,9 @@ import scala.collection.immutable.ListMap
 import scala.concurrent.duration._
 import scala.concurrent.{Await, Future}
 import scala.util.Try
-
 import com.haufe.umantis.ds.nlp.LanguagesConfiguration
+
+import scala.annotation.tailrec
 
 class EmbeddingsDictClient(
 
@@ -143,7 +144,7 @@ class EmbeddingsDictClient(
         textColumns.flatMap(textCol => {
           // all words for each columnName in input
           df.filter(col(textCol.language) === lang).flatMap(
-            r => r.getAs[Seq[String]](textCol.cleanWords).map(_.toLowerCase)
+            r => Try(r.getAs[Seq[String]](textCol.cleanWords).map(_.toLowerCase)).getOrElse(Seq())
           )
             .collect
             .toSet
@@ -183,7 +184,7 @@ class EmbeddingsDictClient(
     })
   }
 
-  @transient implicit lazy val timeout: Timeout = Timeout(10 seconds)
+  @transient implicit lazy val timeout: Timeout = Timeout(2 seconds)
 
   // should be made async.
   def query(language: String, word: String, serialDictImpl: Boolean = false)
@@ -191,14 +192,33 @@ class EmbeddingsDictClient(
     cache(language).getOrElse(word, queryRemote(language, word, serialDictImpl))
   }
 
-  @inline
   def queryRemote(language: String, word: String, serialDictImpl: Boolean = false)
   : Option[Array[Float]] = {
     val actorName = if (serialDictImpl) s"${language}_serial" else language
-    val future = getRemoteDict(actorName) ? WordVectorQuery(word)
-    val vec = Await.result(future, timeout.duration).asInstanceOf[VectorResponse].vector
-    cache(language.manualIntern())(word.manualIntern()) = vec
-    vec
+    val actor = getRemoteDict(actorName)
+
+    @tailrec
+    def doQueryRemote(tryNr: Int): Option[Array[Float]] = {
+      val future = actor ? WordVectorQuery(word)
+
+      try {
+        val vec = Await.result(future, timeout.duration).asInstanceOf[VectorResponse].vector
+        cache(language.manualIntern())(word.manualIntern()) = vec
+        vec
+      } catch {
+        case e: java.util.concurrent.TimeoutException =>
+          print(s"### TIMEOUT in queryRemote($language, $word)")
+          if (tryNr > 10) {
+            e.printStackTrace()
+            throw e
+
+          } else {
+            doQueryRemote(tryNr + 1)
+          }
+      }
+    }
+
+    doQueryRemote(1)
   }
 
   // TODO
