@@ -17,6 +17,7 @@ package com.haufe.umantis.ds.spark
 
 import com.haufe.umantis.ds.utils.ConfigGetter
 import com.typesafe.config.Config
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
 import scala.util.Try
@@ -24,34 +25,76 @@ import scala.util.Try
 
 trait SparkSessionWrapper {
 
-  lazy val currentSparkSession: SparkSession = {
-    sys.env.get("TESTING") match {
-      case Some(value) =>
-        if (Try(value.toBoolean).getOrElse(false)) sessionLocal else sessionCluster
+  val config: Config = ConfigGetter.getConfig("/spark.conf")
 
-      case _ => sessionCluster
-    }
-  }
-
-  lazy val sessionLocal: SparkSession = {
+  def localMaster: String = {
     println("#### CREATING LOCAL SPARK ####")
+    "local[*]"
+  }
+
+  def clusterMaster: String = {
+    // println("#### CREATING CLUSTER SPARK ####")
+    config.getString("spark-configuration.master")
+  }
+
+  lazy val currentSparkSession: SparkSession = {
+    val master: String =
+      sys.env.get("TESTING") match {
+        case Some(value) =>
+          if (Try(value.toBoolean).getOrElse(false)) localMaster else clusterMaster
+        case _ => clusterMaster
+      }
+
+    val conf = new SparkConf(true)
+      .setMaster(master)
+      .setAppName(config.getString("spark-configuration.app-name"))
+
+    if (ConfigGetter.boolConf(config, "spark-configuration.use-elasticsearch"))
+      conf.set("es.nodes", config.getString("spark-configuration.elasticsearch-host"))
+
+    if (ConfigGetter.boolConf(config, "spark-configuration.use-cassandra")) {
+      conf.set("spark.cassandra.connection.host",
+        config.getString("spark-configuration.cassandra-host"))
+
+      val username = config.getString("spark-configuration.cassandra-auth-username")
+      if (! username.isEmpty)
+        conf.set("spark.cassandra.auth.username", username)
+
+      val password = config.getString("spark-configuration.cassandra-auth-password")
+      if (! password.isEmpty)
+        conf.set("spark.cassandra.auth.password", password)
+    }
 
     SparkSession
       .builder()
-      .master("local[*]")
+      .config(conf)
       .getOrCreate()
   }
 
-  lazy val sessionCluster: SparkSession = {
-//    println("#### CREATING CLUSTER SPARK ####")
-
-    val config: Config = ConfigGetter.getConfig("/spark.conf")
-
-    SparkSession
-      .builder()
-      .master(config.getString("spark-configuration.master"))
-//      .config("es.nodes", config.getString("spark-configuration.elasticsearch-host"))
-      .appName(config.getString("spark-configuration.app-name"))
-      .getOrCreate()
-  }
+//  lazy val currentSparkSession: SparkSession = {
+//    sys.env.get("TESTING") match {
+//      case Some(value) =>
+//        if (Try(value.toBoolean).getOrElse(false)) sessionLocal else sessionCluster
+//
+//      case _ => sessionCluster
+//    }
+//  }
+//
+//  lazy val sessionLocal: SparkSession = {
+//    println("#### CREATING LOCAL SPARK ####")
+//
+//    SparkSession
+//      .builder()
+//      .master("local[*]")
+//      .getOrCreate()
+//  }
+//
+//  lazy val sessionCluster: SparkSession = {
+//
+//    SparkSession
+//      .builder()
+//      .master(config.getString("spark-configuration.master"))
+//      .appName(config.getString("spark-configuration.app-name"))
+//      .getOrCreate()
+//  }
 }

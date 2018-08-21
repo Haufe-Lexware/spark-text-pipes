@@ -183,7 +183,7 @@ class EmbeddingsDictClient(
     })
   }
 
-  @transient implicit lazy val timeout: Timeout = Timeout(2 seconds)
+  @transient implicit lazy val timeout: Timeout = Timeout(10 seconds)
 
   // should be made async.
   def query(language: String, word: String, serialDictImpl: Boolean = false)
