@@ -25,7 +25,7 @@ import scala.util.Try
 
 trait SparkSessionWrapper {
 
-  val config: Config = ConfigGetter.getConfig("/spark.conf")
+  val sparkConf: Config = ConfigGetter.getConfig("/spark.conf")
 
   def localMaster: String = {
     println("#### CREATING LOCAL SPARK ####")
@@ -34,7 +34,7 @@ trait SparkSessionWrapper {
 
   def clusterMaster: String = {
     // println("#### CREATING CLUSTER SPARK ####")
-    config.getString("spark-configuration.master")
+    sparkConf.getString("spark-configuration.master")
   }
 
   lazy val currentSparkSession: SparkSession = {
@@ -47,20 +47,20 @@ trait SparkSessionWrapper {
 
     val conf = new SparkConf(true)
       .setMaster(master)
-      .setAppName(config.getString("spark-configuration.app-name"))
+      .setAppName(sparkConf.getString("spark-configuration.app-name"))
 
-    if (ConfigGetter.boolConf(config, "spark-configuration.use-elasticsearch"))
-      conf.set("es.nodes", config.getString("spark-configuration.elasticsearch-host"))
+    if (ConfigGetter.boolConf(sparkConf, "spark-configuration.use-elasticsearch"))
+      conf.set("es.nodes", sparkConf.getString("spark-configuration.elasticsearch-host"))
 
-    if (ConfigGetter.boolConf(config, "spark-configuration.use-cassandra")) {
+    if (ConfigGetter.boolConf(sparkConf, "spark-configuration.use-cassandra")) {
       conf.set("spark.cassandra.connection.host",
-        config.getString("spark-configuration.cassandra-host"))
+        sparkConf.getString("spark-configuration.cassandra-host"))
 
-      val username = config.getString("spark-configuration.cassandra-auth-username")
+      val username = sparkConf.getString("spark-configuration.cassandra-auth-username")
       if (! username.isEmpty)
         conf.set("spark.cassandra.auth.username", username)
 
-      val password = config.getString("spark-configuration.cassandra-auth-password")
+      val password = sparkConf.getString("spark-configuration.cassandra-auth-password")
       if (! password.isEmpty)
         conf.set("spark.cassandra.auth.password", password)
     }
@@ -70,31 +70,4 @@ trait SparkSessionWrapper {
       .config(conf)
       .getOrCreate()
   }
-
-//  lazy val currentSparkSession: SparkSession = {
-//    sys.env.get("TESTING") match {
-//      case Some(value) =>
-//        if (Try(value.toBoolean).getOrElse(false)) sessionLocal else sessionCluster
-//
-//      case _ => sessionCluster
-//    }
-//  }
-//
-//  lazy val sessionLocal: SparkSession = {
-//    println("#### CREATING LOCAL SPARK ####")
-//
-//    SparkSession
-//      .builder()
-//      .master("local[*]")
-//      .getOrCreate()
-//  }
-//
-//  lazy val sessionCluster: SparkSession = {
-//
-//    SparkSession
-//      .builder()
-//      .master(config.getString("spark-configuration.master"))
-//      .appName(config.getString("spark-configuration.app-name"))
-//      .getOrCreate()
-//  }
 }

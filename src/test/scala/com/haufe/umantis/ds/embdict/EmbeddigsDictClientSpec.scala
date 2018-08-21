@@ -30,7 +30,7 @@ import org.scalatest._
   *       and the server MUST resolve "embdict" to itself.
   */
 class EmbeddingsDictClientSpec extends SparkSpec with EmbeddingsDictClientSpecFixture {
-  val embdict = EmbeddingsDictClient()
+  val embdict = EmbeddingsDictClient(cacheName = "tmpcache")
 
   def query(word: String, language: String = "en", serialDictImpl: Boolean = false)
   : Option[Array[Float]] = {
@@ -132,10 +132,10 @@ class EmbeddingsDictClientSpec extends SparkSpec with EmbeddingsDictClientSpecFi
     ed3.getCacheSize.foreach {case (lang, cacheSize) => cacheSize shouldBe 0}
   }
 
-  it must "fill cache using all words in a list of data frame" in {
+  it must "fill cache using all words in a list of DataFrames" in {
     val input: Map[DataFrame, Array[ColnamesText]] = Seq(
       df1 -> Array(animals1, animals2),
-      df2 -> Array(animals3)
+      df2 -> Array(animals3, animals4)
     ).toMap
 
     val ed = EmbeddingsDictClient(cacheName = "tmpcache")
@@ -145,7 +145,10 @@ class EmbeddingsDictClientSpec extends SparkSpec with EmbeddingsDictClientSpecFi
       .fillEmbeddingsCache(input, clearCache = true, embDict = ed, providedCacheName = "tmpcache")
 
     val ed2 = EmbeddingsDictClient(cacheName = "tmpcache")
-    (words1 ++ words2 ++ words3).foreach(word => ed2.cache("en") should contain key word)
+    (words1 ++ words2 ++ words3
+      ++ words4.flatMap(x => if (x != null) x else Seq()))
+      .toSet
+      .foreach{word: String => ed2.cache("en") should contain key word}
 
     // cleanup
     ed2.clearCache()
@@ -159,18 +162,24 @@ trait EmbeddingsDictClientSpecFixture extends SparkSessionWrapper {
   val animals1: ColnamesText = ColnamesText("animals1")
   val animals2: ColnamesText = ColnamesText("animals2")
   val animals3: ColnamesText = ColnamesText("animals3")
+  val animals4: ColnamesText = ColnamesText("animals4")
 
   val words1 = Seq("dog", "cat", "mouse")
   val words2 = Seq("donkey", "horse", "cow")
   val words3 = Seq("chinchilla", "shark", "bear")
+  val words4 = Seq(null, Array("dog", "wolf"), null)
 
   val col1: DataFrame = words1.map(Array(_)).toDF(animals1.cleanWords)
   val col2: DataFrame = words2.map(Array(_)).toDF(animals2.cleanWords)
+  val col3: DataFrame = words3.map(Array(_)).toDF(animals3.cleanWords)
+  val col4: DataFrame = words4.toDF(animals4.cleanWords)
 
   val df1: DataFrame = DataFrameHelpers
     .mergeDataframes(Array(col1, col2))
     .withColumn(animals1.language, lit("en"))
     .withColumn(animals2.language, lit("en"))
-  val df2: DataFrame = words3.map(Array(_)).toDF(animals3.cleanWords)
+  val df2: DataFrame = DataFrameHelpers
+    .mergeDataframes(Array(col3, col4))
     .withColumn(animals3.language, lit("en"))
+    .withColumn(animals4.language, lit("en"))
 }
