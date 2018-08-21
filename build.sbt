@@ -150,6 +150,10 @@ libraryDependencies += "org.apache.kafka" % "kafka-clients" % "1.1.0"
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka
 libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
 
+// Cassandra
+resolvers += "Spark Packages Repo" at "https://dl.bintray.com/spark-packages/maven"
+libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.0-s_2.11"
+
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build
