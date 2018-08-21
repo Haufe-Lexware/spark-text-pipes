@@ -148,7 +148,7 @@ class EmbeddingsDictClientSpec extends SparkSpec with EmbeddingsDictClientSpecFi
     (words1 ++ words2 ++ words3
       ++ words4.flatMap(x => if (x != null) x else Seq()))
       .toSet
-      .foreach(word => ed2.cache("en") should contain key word)
+      .foreach{word: String => ed2.cache("en") should contain key word}
 
     // cleanup
     ed2.clearCache()
