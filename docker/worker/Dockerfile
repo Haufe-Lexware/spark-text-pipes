@@ -1,6 +1,6 @@
 FROM spark-base:latest
 
-MAINTAINER Nicola Bova <nicola.bova@haufe.com>
+MAINTAINER Nicola Bova <nicola.bova@gmail.com>
 
 COPY worker.sh /
 

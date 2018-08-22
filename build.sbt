@@ -151,7 +151,6 @@ libraryDependencies += "org.apache.kafka" % "kafka-clients" % "1.1.0"
 libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
 
 // Cassandra
-resolvers += "Spark Packages Repo" at "https://dl.bintray.com/spark-packages/maven"
 libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.0-s_2.11"
 
 

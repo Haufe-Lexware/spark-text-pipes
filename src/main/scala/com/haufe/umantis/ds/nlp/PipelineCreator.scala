@@ -20,9 +20,8 @@ import com.haufe.umantis.ds.location.{CoordinatesFetcher, DistanceCalculator, Di
 import com.haufe.umantis.ds.nlp.stanford.corenlp.StanfordPipelines._
 import com.haufe.umantis.ds.nlp.stanford.corenlp._
 import com.haufe.umantis.ds.spark.{NormalizedBagOfWords, UnaryUDFTransformer}
-import com.haufe.umantis.ds.utils.ConfigGetter
+import com.haufe.umantis.ds.utils.{ConfigGetter, URLExpander, URLValidator}
 import com.haufe.umantis.ds.wmd.{EuclideanDistanceNormalized, WordMoverDistanceCalculator}
-import com.typesafe.config.Config
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.feature.RegexTokenizer
 
@@ -76,6 +75,18 @@ object ColnamesTextSimilarity {
     new ColnamesTextSimilarity(baseText, varyingText)
 }
 
+class ColnamesURL(val colName: String) extends Colnames {
+  def urls: String = colName
+
+  def validURLs: String = s"${colName}__valid"
+
+  def expandedURLs: String = s"${colName}__expanded"
+
+  def score: String = s"${colName}__score"
+}
+object ColnamesURL {
+  def apply(colName: String): ColnamesURL = new ColnamesURL(colName)
+}
 
 class ColnamesLocation(val locationCol: String, val countryCodeCol: Option[String] = None)
   extends Colnames {
@@ -140,17 +151,22 @@ object Stg {
   val EmbeddingsModel: String = "EmbeddingsModel"
   val OtherLanguageBooster: String = "OtherLanguageBooster"
   val SimilarityScorer: String = "SimilarityScorer"
+
+  val WordMoverDistance: String = "WordMoverDistance"
+  val NormalizedBagOfWords: String = "NormalizedBagOfWords"
+
   val CoordinatesFetcher: String = "CoordinatesFetcher"
   val DistanceCalculator: String = "DistanceCalculator"
   val DistanceScorer: String = "DistanceScorer"
-  val LinearWeigher: String = "LinearWeigher"
-  val WordMoverDistance: String = "WordMoverDistance"
-  val NormalizedBagOfWords: String = "NormalizedBagOfWords"
+
+  val URLValidator: String = "URLValidator"
+  val URLExpander: String = "URLExpander"
 
   val Max: String = "ColumnAggregatorMax"
   val Min: String = "ColumnAggregatorMin"
   val Sum: String = "ColumnAggregatorSum"
   val Mean: String = "ColumnAggregatorMean"
+  val LinearWeigher: String = "LinearWeigher"
 }
 
 object StandardPipeline {
@@ -172,6 +188,11 @@ object StandardPipeline {
   val DistanceScoring: Seq[String] = Seq(
     Stg.DistanceCalculator,
     Stg.DistanceScorer
+  )
+
+  val URLProcessing: Seq[String] = Seq(
+    Stg.URLValidator,
+    Stg.URLExpander
   )
 }
 
@@ -251,14 +272,24 @@ object DsPipeline extends ConfigGetter {
       .setInputCol(c.tokens)
       .setOutputCol(c.cleanWords)
 
-  def getWordMoverDistance(c: ColnamesTextSimilarity):WordMoverDistanceCalculatorTransformer =
+  def getWordMoverDistance(c: ColnamesTextSimilarity): WordMoverDistanceCalculatorTransformer =
     new WordMoverDistanceCalculatorTransformer(WordMoverDistanceCalculator())
-    .setCalculationType(EuclideanDistanceNormalized)
-    .setInputCol(c.varyingText.nBOW)
-    .setLanguageCol(c.varyingText.language)
-    .setBaseLanguageCol(c.baseText.language)
-    .setBaseDocumentCol(c.baseText.nBOW)
-    .setOutputCol(c.similarity)
+      .setCalculationType(EuclideanDistanceNormalized)
+      .setInputCol(c.varyingText.nBOW)
+      .setLanguageCol(c.varyingText.language)
+      .setBaseLanguageCol(c.baseText.language)
+      .setBaseDocumentCol(c.baseText.nBOW)
+      .setOutputCol(c.similarity)
+
+  def getURLValidator(c: ColnamesURL): URLValidator =
+    new URLValidator()
+      .setInputCol(c.urls)
+      .setOutputCol(c.validURLs)
+
+  def getURLExpander(c: ColnamesURL): URLExpander =
+    new URLExpander()
+      .setInputCol(c.validURLs)
+      .setOutputCol(c.expandedURLs)
 
   def getStanfordCoreNLP(c: ColnamesText): StanfordCoreNLPTransformer =
     StanfordCoreNLPTransformer(StanfordPipelines(
@@ -346,16 +377,21 @@ object DsPipeline extends ConfigGetter {
       Stg.EmbeddingsModel -> getEmbeddingsModel _,
       Stg.OtherLanguageBooster -> getOtherLanguageBooster _,
       Stg.SimilarityScorer -> getSimilarityScorerDenseVector _,
+
+      Stg.WordMoverDistance -> getWordMoverDistance _,
+      Stg.NormalizedBagOfWords -> getNormalizedBagOfWordsTransformer _,
+
       Stg.CoordinatesFetcher -> getCoordinatesFetcher _,
       Stg.DistanceCalculator -> getDistanceCalculator _,
       Stg.DistanceScorer -> getDistanceScorer _,
-      Stg.LinearWeigher -> getLinearWeigher _,
-      Stg.WordMoverDistance -> getWordMoverDistance _,
-      Stg.NormalizedBagOfWords -> getNormalizedBagOfWordsTransformer _,
+
+      Stg.URLValidator -> getURLValidator _,
+      Stg.URLExpander -> getURLExpander _,
 
       Stg.Max -> getMax _,
       Stg.Min -> getMin _,
       Stg.Sum -> getSum _,
-      Stg.Mean -> getMean _
+      Stg.Mean -> getMean _,
+      Stg.LinearWeigher -> getLinearWeigher _
     )
 }
