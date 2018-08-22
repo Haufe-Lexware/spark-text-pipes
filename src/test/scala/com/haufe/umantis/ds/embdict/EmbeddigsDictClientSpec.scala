@@ -30,7 +30,7 @@ import org.scalatest._
   *       and the server MUST resolve "embdict" to itself.
   */
 class EmbeddingsDictClientSpec extends SparkSpec with EmbeddingsDictClientSpecFixture {
-  val embdict = EmbeddingsDictClient()
+  val embdict = EmbeddingsDictClient(cacheName = "tmpcache")
 
   def query(word: String, language: String = "en", serialDictImpl: Boolean = false)
   : Option[Array[Float]] = {
