@@ -163,12 +163,12 @@ docker exec -it --env COLUMNS=`tput cols` --env LINES=`tput lines` master bash -
 Inside a docker container with access to all necessary docker container dependencies, download
 the source code in, e.g. `$ROOT_DIR/apps/`, and run 
 ```bash
-env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -mem 20000 test
+env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -ivy /apps/ivy -mem 20000 test
 ```
 
 #### Executing just a subset of the tests
 ```bash
-env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -mem 8000 "test:testOnly *TopicSource*"
+env TESTING="true" DATA_ROOT="/data/" APPS_ROOT="/apps/" sbt -ivy /apps/ivy -mem 8000 "test:testOnly *TopicSource*"
 ```
 
 ### Run from idea
