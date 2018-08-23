@@ -45,13 +45,16 @@ class DistanceCalculator(override val uid: String)
     val calculateDistance = udf({
 
       (baseLocation: Row, locations: Seq[Row]) /* also coordinates */ => {
-
-        locations.map(location =>
-          Try(
-            Location.getDistance[GeoCoordinates](baseLocation, location)
-          ).getOrElse(100000f)
-        )
-          .min
+        if (baseLocation == null || locations == null || locations.isEmpty) {
+          None
+        } else {
+          Some(locations.map(location =>
+            Try(
+              Location.getDistance[GeoCoordinates](baseLocation, location)
+            ).getOrElse(100000f)
+          )
+            .min)
+        }
       }
     })
 
@@ -73,7 +76,7 @@ class DistanceCalculator(override val uid: String)
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
     val outputFields = schema.fields :+
-      StructField($(outputCol), schemaFor[Float].dataType, nullable = false)
+      StructField($(outputCol), schemaFor[Float].dataType, nullable = true)
     StructType(outputFields)
   }
 

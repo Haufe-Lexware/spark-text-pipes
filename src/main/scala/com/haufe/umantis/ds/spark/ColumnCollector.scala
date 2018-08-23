@@ -81,6 +81,6 @@ object ColumnCollector {
           }
       }
 
-    requiredInputs.filterNot(producedOutput.contains(_))
+    requiredInputs.filterNot(producedOutput.contains(_)).distinct
   }
 }

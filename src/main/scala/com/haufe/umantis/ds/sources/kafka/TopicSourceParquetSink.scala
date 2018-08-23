@@ -45,6 +45,8 @@ extends TopicSource(conf)
 
   var lastTimestamp: Long = 0
 
+  var lastSinkTimestamp: String = null
+
   private var startingOffset: String = "latest"
 
   private var readOnly: Boolean = false
@@ -64,8 +66,6 @@ extends TopicSource(conf)
     }
     this
   }
-
-  var sinkProcessingThread: Option[Thread] = None
 
   /**
     * Start the processing of this topic
@@ -88,12 +88,6 @@ extends TopicSource(conf)
             .trigger(conf.kafkaTopic.trigger)
             .start(conf.filePath)
 
-          val t = new Thread {
-            override def run(): Unit = s.awaitTermination()
-          }
-          t.start()
-          sinkProcessingThread = Some(t)
-
           Some(s)
         } catch {
           case _: RestClientException =>
@@ -114,17 +108,8 @@ extends TopicSource(conf)
       sink match {
         case Some(s) =>
           s.stop()
-          sinkProcessingThread match {
-            case Some(t) =>
-              println("waiting")
-              while(t.isAlive) {
-                t.wait()
-                Thread.sleep(10)
-              }
+          s.awaitTermination()
 
-            case _ =>
-              println("not waiting")
-          }
           sink = None
           dataFrame = None
         case _ => ;
@@ -230,7 +215,7 @@ extends TopicSource(conf)
         s"Kafka topic ${conf.kafkaTopic.topic} not ready!")
     }
 
-    sink match {
+    val sinkTimestamp = sink match {
       case Some(s) =>
         log("Sink defined")
         if (! s.isActive) {
@@ -241,40 +226,33 @@ extends TopicSource(conf)
 //          Thread.sleep(100)
           reset()
         }
+        Option(s.lastProgress).map(_.timestamp).getOrElse(lastSinkTimestamp)
       case _ =>
         log("No sink")
+        lastSinkTimestamp
     }
 
     dataFrame match {
       case None =>
         log("No DataFrame")
-//        Thread.sleep(100)
 
         if (! isReadOnly)
           sink match {
             case Some(s) =>
-              // sink is defined but df is not available, so we process some data
-              // s.processAllAvailable()
-
             case _ =>
-              // sink is not defined. we first create it;
               start()
-              // then check it out again
-//              sink match {
-//                case Some(s) => s.processAllAvailable() // defined, all good
-//                case _ => ; // not defined, kafka topic does not exist, updateDf will fail
-//              }
           }
         lastTimestamp = getTimestamp
+        lastSinkTimestamp = sinkTimestamp
         updateDf()
 
       case Some(df) =>
         log("DataFrame defined")
-//        Thread.sleep(100)
 
         val now = getTimestamp
         log(s"Difference in timestamps: ${now - lastTimestamp}" )
-        if (now - lastTimestamp < conf.parquetSink.refreshTime /* in seconds */)
+        if (lastSinkTimestamp == sinkTimestamp  /* nothing come in kafka topic */
+            || now - lastTimestamp < conf.parquetSink.refreshTime /* in seconds */)
           // The df is fresh enough to be served
           df
         else {

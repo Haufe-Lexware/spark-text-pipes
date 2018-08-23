@@ -16,59 +16,61 @@
 package com.haufe.umantis.ds.nlp
 
 import com.haufe.umantis.ds.nlp.params._
-import org.apache.spark.internal.Logging
 import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
-import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.catalyst.ScalaReflection
 import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 
-class OtherLanguagesBooster(override val uid: String)
-  extends Transformer with HasInputCol with HasOutputCol with HasLanguageCol with Logging
-    with HasBaseLanguageCol with ValidateColumnSchema {
+class SimilarityScorerMultibleBaseVectorsDenseVector(override val uid: String)
+  extends Transformer with HasInputCol with HasOutputCol
+    with HasAggregationFunction with HasBaseVectorCol with ValidateColumnSchema {
 
-  def this() = this(Identifiable.randomUID("OtherLanguagesBoost"))
+  def this() = this(Identifiable.randomUID("SimilarityScorerDenseVector"))
 
   def setInputCol(value: String): this.type = set(inputCol, value)
 
   def setOutputCol(value: String): this.type = set(outputCol, value)
 
-  val boostsMap: Param[Map[String, Float]] =
-    new Param[Map[String, Float]](this, "boostsMap",
-      "how much to boost other languages given the base one.")
+  private val vectorUDT = ScalaReflection.schemaFor[DenseVector].dataType
 
-  def setBoostsMap(value: Map[String, Float]): this.type = set(boostsMap, value)
-
-  def getBoostsMap: Map[String, Float] = $(boostsMap)
-
-  setDefault(boostsMap, Map("en" -> 1.3f, "de" -> 1.17f))
-
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema, logging = true)
+    val aggregation: Seq[Float] => Float = $(aggregationFunction)
 
-    val boostOtherLanguage = udf {
-
-      (language: String, baseLang: String, similarity: Float) =>
-        if (language == null || baseLang == null)
+    val calculateSimilarity = udf {
+      (base: Seq[DenseVector], v1: DenseVector) => {
+        (if (base == null || v1 == null) {
           None
-        else if (language != baseLang)
-          Some(similarity * $(boostsMap).getOrElse(baseLang, 1.0f))
-        else
-          Some(similarity)
+        } else {
+          Some(base.map(v0 => {
+            val size = v0.size
+            val base = v0.values
+            val vector = v1.values
+            var i = 0
+            var dotProduct = 0.0
+            while (i < size) {
+              dotProduct += base(i) * vector(i)
+              i += 1
+            }
+            dotProduct.toFloat
+          }))
+        }).map(aggregation)
+      }
     }
 
-    dataset.withColumn($(outputCol), boostOtherLanguage(col($(languageCol)),
-      col($(baseLanguageCol)), col($(inputCol))))
+    dataset.withColumn($(outputCol), calculateSimilarity(col($(baseVectorCol)), col($(inputCol))))
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    validateColumnSchema($(inputCol), schemaFor[Float].dataType, schema)
-    validateColumnSchema($(languageCol), schemaFor[String].dataType, schema)
-    validateColumnSchema($(baseLanguageCol), schemaFor[String].dataType, schema)
+    validateColumnSchema($(inputCol), vectorUDT, schema)
+    validateColumnSchema($(baseVectorCol), vectorUDT, schema)
 
     if (schema.fieldNames.contains($(outputCol))) {
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
@@ -78,6 +80,7 @@ class OtherLanguagesBooster(override val uid: String)
     StructType(outputFields)
   }
 
-  override def copy(extra: ParamMap): OtherLanguagesBooster =
-    defaultCopy[OtherLanguagesBooster](extra)
+  override def copy(extra: ParamMap): SimilarityScorerMultibleBaseVectorsDenseVector =
+    defaultCopy[SimilarityScorerMultibleBaseVectorsDenseVector](extra)
+
 }
