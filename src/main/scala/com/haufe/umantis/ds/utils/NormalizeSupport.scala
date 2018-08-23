@@ -36,6 +36,10 @@ trait NormalizeSupport extends Serializable {
   import java.text.Normalizer.{ normalize ⇒ jnormalize, _ }
 
   def normalize(in: String): String = {
+    jnormalize(in, Form.NFKC)
+  }
+
+  def normalizeMore(in: String): String = {
     val cleaned = in.trim.toLowerCase
     val normalized = jnormalize(cleaned, Form.NFD).replaceAll("[\\p{InCombiningDiacriticalMarks}\\p{IsM}\\p{IsLm}\\p{IsSk}]+", "")
 
