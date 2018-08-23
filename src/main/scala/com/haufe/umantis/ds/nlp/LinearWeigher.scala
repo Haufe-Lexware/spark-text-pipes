@@ -44,16 +44,14 @@ class LinearWeigher(override val uid: String)
     transformSchema(dataset.schema, logging = true)
 
     val linearCombination = udf {
-      (linearWeights: Seq[Float], values: Seq[Float]) => {
+      (linearWeights: Seq[Float], values: Seq[Any]) => {
         val (valueSum, weightSum) = (values, linearWeights).zipped
-          .foldLeft((0.0f, 0.0f)) {
-            case ((valueSum, weightSum), (value, weights)) => {
-              if (value == null)
-                (valueSum, weightSum)
-              else
-                (valueSum + value * weights, weightSum + weights)
-            }
-          }
+          .foldLeft((0.0f, 0.0f)){
+          case ((valueSum, weightSum), (value:Float, weights)) => (valueSum + value * weights, weightSum + weights)
+          case ((valueSum, weightSum), (_, weights)) =>
+            (valueSum, weightSum)
+        }
+
         valueSum / weightSum
       }
     }
