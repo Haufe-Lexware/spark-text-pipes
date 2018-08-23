@@ -337,17 +337,17 @@ object DsPipeline extends ConfigGetter {
   def similarityScorerDenseVectorAgregator(
                                             c: ColnamesTextSimilarity,
                                             aggregationFunction: Seq[Float] => Float)
-  : SimilarityScorerMultibleBaseVectorsDenseVector =
-    new SimilarityScorerMultibleBaseVectorsDenseVector()
+  : SimilarityScorerMultipleBaseVectorsDenseVector =
+    new SimilarityScorerMultipleBaseVectorsDenseVector()
       .setInputCol(c.varyingText.vector)
       .setAggregationFunction(aggregationFunction)
       .setOutputCol(c.similarity)
       .setBaseVectorCol(c.baseVector)
 
-  def getSimilarityScorerDenseVectorMax(c: ColnamesTextSimilarity): SimilarityScorerMultibleBaseVectorsDenseVector =
+  def getSimilarityScorerDenseVectorMax(c: ColnamesTextSimilarity): SimilarityScorerMultipleBaseVectorsDenseVector =
     similarityScorerDenseVectorAgregator(c, ColumnsAggregator.max)
 
-  def getSimilarityScorerDenseVectorMean(c: ColnamesTextSimilarity): SimilarityScorerMultibleBaseVectorsDenseVector =
+  def getSimilarityScorerDenseVectorMean(c: ColnamesTextSimilarity): SimilarityScorerMultipleBaseVectorsDenseVector =
     similarityScorerDenseVectorAgregator(c, ColumnsAggregator.mean)
 
   def getCoordinatesFetcher(c: ColnamesLocation): CoordinatesFetcher =

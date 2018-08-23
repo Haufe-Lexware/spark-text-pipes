@@ -28,7 +28,7 @@ import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 
-class SimilarityScorerMultibleBaseVectorsDenseVector(override val uid: String)
+class SimilarityScorerMultipleBaseVectorsDenseVector(override val uid: String)
   extends Transformer with HasInputCol with HasOutputCol
     with HasAggregationFunction with HasBaseVectorCol with ValidateColumnSchema {
 
@@ -80,7 +80,7 @@ class SimilarityScorerMultibleBaseVectorsDenseVector(override val uid: String)
     StructType(outputFields)
   }
 
-  override def copy(extra: ParamMap): SimilarityScorerMultibleBaseVectorsDenseVector =
-    defaultCopy[SimilarityScorerMultibleBaseVectorsDenseVector](extra)
+  override def copy(extra: ParamMap): SimilarityScorerMultipleBaseVectorsDenseVector =
+    defaultCopy[SimilarityScorerMultipleBaseVectorsDenseVector](extra)
 
 }
