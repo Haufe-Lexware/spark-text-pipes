@@ -47,7 +47,8 @@ class LinearWeigher(override val uid: String)
       (linearWeights: Seq[Float], values: Seq[Any]) => {
         val (valueSum, weightSum) = (values, linearWeights).zipped
           .foldLeft((0.0f, 0.0f)){
-          case ((valueSum, weightSum), (value:Float, weights)) => (valueSum + value * weights, weightSum + weights)
+          case ((valueSum, weightSum), (value:Float, weights)) =>
+            (valueSum + value * weights, weightSum + weights)
           case ((valueSum, weightSum), (_, weights)) =>
             (valueSum, weightSum)
         }
