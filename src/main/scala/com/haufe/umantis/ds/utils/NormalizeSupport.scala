@@ -15,6 +15,8 @@
 
 package com.haufe.umantis.ds.utils
 
+import com.haufe.umantis.ds.nlp.Substitution
+
 /**
   * Performs standard Java/unicode normalization on the trimmed and lowercased form
   * of the input String and then adds a few extra tricks for dealing with special
@@ -35,20 +37,56 @@ package com.haufe.umantis.ds.utils
 trait NormalizeSupport extends Serializable {
   import java.text.Normalizer.{ normalize ⇒ jnormalize, _ }
 
-  def normalize(in: String): String = {
-    jnormalize(in, Form.NFKC)
+  def replace(in: String, sub: Substitution): String =
+    sub.pattern.replaceAllIn(in, sub.repl)
+
+  def replace(in: String, substitutions: Array[Substitution]): String = {
+    substitutions.foldLeft(in){
+      case (result, substitution) =>
+        replace(result, substitution)
+    }
   }
 
-  def normalizeMore(in: String): String = {
-    val cleaned = in.trim.toLowerCase
-    val normalized = jnormalize(cleaned, Form.NFD).replaceAll("[\\p{InCombiningDiacriticalMarks}\\p{IsM}\\p{IsLm}\\p{IsSk}]+", "")
+  def cleanUp(in: String): String = {
+    jnormalize(in.trim.toLowerCase, Form.NFKD)
+  }
 
-    normalized.replaceAll("'s", "")
-      .replaceAll("ß", "ss")
-      .replaceAll("ø", "o")
-      .replaceAll("[^a-zA-Z0-9-]+", "-")
-      .replaceAll("-+", "-")
-      .stripSuffix("-")
+
+  implicit class StringNormalizerHelper(in: String) {
+
+    val InCombiningDiacriticalMarks =
+      Substitution("\\p{InCombiningDiacriticalMarks}+".r, "")
+
+    val InCombiningDiacriticalMarksPlus =
+      Substitution("[\\p{InCombiningDiacriticalMarks}\\p{IsM}\\p{IsLm}\\p{IsSk}]+".r, "")
+
+    val allBaseReplacements = Array(
+      InCombiningDiacriticalMarksPlus,
+      Substitution("ß".r, "ss"),
+      Substitution("ø".r, "o")
+    )
+
+    val allReplacements: Array[Substitution] = {
+      allBaseReplacements ++
+        Seq(
+          Substitution("'s".r, ""),
+          Substitution("[^a-zA-Z0-9-]+".r, "-"),
+          Substitution("-+".r, "-")
+        )
+    }
+
+    def clean: String = cleanUp(in)
+
+    def normalize: String = replace(cleanUp(in), InCombiningDiacriticalMarks)
+
+    def normalizePlus: String = replace(cleanUp(in), InCombiningDiacriticalMarksPlus)
+
+    def normalizeAll: String = replace(cleanUp(in), allBaseReplacements)
+
+    def normalizeAlsoSigns: String = {
+      replace(cleanUp(in), allReplacements)
+        .stripSuffix("-")
+    }
   }
 }
 
