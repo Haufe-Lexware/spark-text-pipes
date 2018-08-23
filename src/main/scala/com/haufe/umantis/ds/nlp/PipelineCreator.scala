@@ -61,18 +61,28 @@ object ColnamesText {
 }
 
 class ColnamesTextSimilarity(val baseText: ColnamesText,
-                             val varyingText: ColnamesText)
+                             val varyingText: ColnamesText,
+                             val additional: String = "")
   extends Colnames {
 
   def similarity: String =
-    s"${baseText.vector}__similarity__${varyingText.vector}"
+    s"${baseText.vector}__similarity${additional}__${varyingText.vector}"
 
   def score: String =
-    s"${baseText.vector}__score__${varyingText.vector}"
+    s"${baseText.vector}__score${additional}__${varyingText.vector}"
+
+  def baseVector: String =
+    s"${baseText.vector}__baseVector${additional}__${varyingText.vector}"
+
+  def baseLanguage: String =
+    s"${baseText.vector}__baseLanguage${additional}__${varyingText.vector}"
 }
 object ColnamesTextSimilarity {
   def apply(baseText: ColnamesText, varyingText: ColnamesText): ColnamesTextSimilarity =
     new ColnamesTextSimilarity(baseText, varyingText)
+
+  def apply(baseText: ColnamesText, varyingText: ColnamesText, additional: String): ColnamesTextSimilarity =
+    new ColnamesTextSimilarity(baseText, varyingText, additional)
 }
 
 class ColnamesURL(val colName: String) extends Colnames {
@@ -154,7 +164,10 @@ trait Stg {
   val StopWordsRemover: String = "StopWordsRemover"
   val EmbeddingsModel: String = "EmbeddingsModel"
   val OtherLanguageBooster: String = "OtherLanguageBooster"
+
   val SimilarityScorer: String = "SimilarityScorer"
+  val SimilarityScorerArrayMax: String = "SimilarityScorerArrayMax"
+  val SimilarityScorerArrayMean: String = "SimilarityScorerArrayMean"
 
   val WordMoverDistance: String = "WordMoverDistance"
   val NormalizedBagOfWords: String = "NormalizedBagOfWords"
@@ -325,6 +338,22 @@ trait DsPipelineCommon extends ConfigGetter {
       .setOutputCol(c.similarity)
       .setBaseVectorCol(c.baseText.vector)
 
+  def similarityScorerDenseVectorAgregator(
+                                            c: ColnamesTextSimilarity,
+                                            aggregationFunction: Seq[Float] => Float)
+  : SimilarityScorerMultibleBaseVectorsDenseVector =
+    new SimilarityScorerMultibleBaseVectorsDenseVector()
+      .setInputCol(c.varyingText.vector)
+      .setAggregationFunction(aggregationFunction)
+      .setOutputCol(c.similarity)
+      .setBaseVectorCol(c.baseVector)
+
+  def getSimilarityScorerDenseVectorMax(c: ColnamesTextSimilarity): SimilarityScorerMultibleBaseVectorsDenseVector =
+    similarityScorerDenseVectorAgregator(c, ColumnsAggregator.max)
+
+  def getSimilarityScorerDenseVectorMean(c: ColnamesTextSimilarity): SimilarityScorerMultibleBaseVectorsDenseVector =
+    similarityScorerDenseVectorAgregator(c, ColumnsAggregator.mean)
+
   def getCoordinatesFetcher(c: ColnamesLocation): CoordinatesFetcher =
     new CoordinatesFetcher()
       .setLocationCol(c.location)
@@ -402,6 +431,8 @@ trait DsPipelineCommon extends ConfigGetter {
       Stg.EmbeddingsModel -> getEmbeddingsModel _,
       Stg.OtherLanguageBooster -> getOtherLanguageBooster _,
       Stg.SimilarityScorer -> getSimilarityScorerDenseVector _,
+      Stg.SimilarityScorerArrayMax -> getSimilarityScorerDenseVectorMax _,
+      Stg.SimilarityScorerArrayMean -> getSimilarityScorerDenseVectorMean _,
 
       Stg.WordMoverDistance -> getWordMoverDistance _,
       Stg.NormalizedBagOfWords -> getNormalizedBagOfWordsTransformer _,
