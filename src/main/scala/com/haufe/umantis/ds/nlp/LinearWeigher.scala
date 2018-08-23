@@ -45,11 +45,11 @@ class LinearWeigher(override val uid: String)
 
     val linearCombination = udf {
       (linearWeights:Row, values: Seq[Float]) => {
-        val sum = (values, linearWeights.getSeq[Float](1)).zipped.foldLeft((0.0f, 0.0f))((p1, p2) => {
-          if (p2._1 == null)
-            p1
+        val sum = (values, linearWeights.getSeq[Float](1)).zipped.foldLeft((0.0f, 0.0f))((acc, element) => {
+          if (element._1 == null)
+            acc
           else
-            (p1._1 + p2._1 * p2._2, p1._2 + p2._2)
+            (acc._1 + element._1 * element._2, acc._2 + element._2)
         })
         sum._1 / sum._2
       }
