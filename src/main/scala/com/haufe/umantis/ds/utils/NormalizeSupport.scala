@@ -53,6 +53,12 @@ trait NormalizeSupport extends Serializable {
     jnormalize(in.trim.toLowerCase, Form.NFKD)
   }
 
+  @transient lazy val anyToLatinTrans: Transliterator =
+    Transliterator.getInstance("Any-Latin")
+
+  @transient lazy val latinToAsciiTrans: Transliterator =
+    Transliterator.getInstance("Latin-ASCII")
+
 
   implicit class StringNormalizerHelper(in: String) {
 
@@ -90,12 +96,18 @@ trait NormalizeSupport extends Serializable {
         .stripSuffix("-")
     }
 
-    def transliterate: String = {
-      import scala.collection.JavaConversions._
+    val anyToLatin: String => String = anyToLatinTrans.transliterate
+    val latinToAscii: String => String = latinToAsciiTrans.transliterate
+    val anyToAscii: String = (anyToLatin andThen latinToAscii)(in)
 
-      Transliterator.getAvailableIDs.foreach(println)
-      val trans = Transliterator.getInstance("Any-Latin")
+    def transliterate(conversionString: String): String = {
+      val trans = Transliterator.getInstance(conversionString)
       trans.transliterate(in)
+    }
+
+    def getConversionIDs: List[String] = {
+      import scala.collection.JavaConversions._
+      Transliterator.getAvailableIDs.toList
     }
   }
 }
