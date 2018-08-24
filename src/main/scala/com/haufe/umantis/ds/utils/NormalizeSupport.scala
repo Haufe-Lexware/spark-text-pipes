@@ -17,6 +17,8 @@ package com.haufe.umantis.ds.utils
 
 import com.haufe.umantis.ds.nlp.Substitution
 
+import com.ibm.icu.text.Transliterator
+
 /**
   * Performs standard Java/unicode normalization on the trimmed and lowercased form
   * of the input String and then adds a few extra tricks for dealing with special
@@ -86,6 +88,14 @@ trait NormalizeSupport extends Serializable {
     def normalizeAlsoSigns: String = {
       replace(cleanUp(in), allReplacements)
         .stripSuffix("-")
+    }
+
+    def transliterate: String = {
+      import scala.collection.JavaConversions._
+
+      Transliterator.getAvailableIDs.foreach(println)
+      val trans = Transliterator.getInstance("Any-Latin")
+      trans.transliterate(in)
     }
   }
 }

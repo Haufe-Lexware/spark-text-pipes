@@ -153,6 +153,11 @@ libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
 // Cassandra
 libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.0-s_2.11"
 
+// icu4j
+// https://mvnrepository.com/artifact/com.ibm.icu/icu4j
+libraryDependencies += "com.ibm.icu" % "icu4j" % "62.1"
+
+
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build
