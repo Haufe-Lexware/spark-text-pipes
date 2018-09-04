@@ -20,7 +20,7 @@ import com.haufe.umantis.ds.location.{CoordinatesFetcher, DistanceCalculator, Di
 import com.haufe.umantis.ds.nlp.stanford.corenlp.StanfordPipelines._
 import com.haufe.umantis.ds.nlp.stanford.corenlp._
 import com.haufe.umantis.ds.spark.{NormalizedBagOfWords, UnaryUDFTransformer}
-import com.haufe.umantis.ds.utils.{ConfigGetter, URLExpander, URLValidator}
+import com.haufe.umantis.ds.utils.{ConfigGetter, URLDetector, URLExpander, URLValidator}
 import com.haufe.umantis.ds.wmd.{EuclideanDistanceNormalized, WordMoverDistanceCalculator}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.feature.RegexTokenizer
@@ -76,9 +76,11 @@ object ColnamesTextSimilarity {
 }
 
 class ColnamesURL(val colName: String) extends Colnames {
-  def urls: String = colName
+  def text: String = colName
 
   def textAllLatin: String = s"${colName}__allLatin"
+
+  def urls: String = s"${colName}__urls"
 
   def validURLs: String = s"${colName}__valid"
 
@@ -161,15 +163,16 @@ trait Stg {
   val DistanceCalculator: String = "DistanceCalculator"
   val DistanceScorer: String = "DistanceScorer"
 
-  val AllLatin: String = "AllLatin"
-  val URLValidator: String = "URLValidator"
-  val URLExpander: String = "URLExpander"
-
   val Max: String = "ColumnAggregatorMax"
   val Min: String = "ColumnAggregatorMin"
   val Sum: String = "ColumnAggregatorSum"
   val Mean: String = "ColumnAggregatorMean"
   val LinearWeigher: String = "LinearWeigher"
+
+  val URLAllLatin: String = "URLAllLatin"
+  val URLDetector: String = "URLDetector"
+  val URLValidator: String = "URLValidator"
+  val URLExpander: String = "URLExpander"
 }
 
 object Stg extends Stg
@@ -196,7 +199,8 @@ object StandardPipeline {
   )
 
   val URLProcessing: Seq[String] = Seq(
-    Stg.AllLatin,
+    Stg.URLAllLatin,
+    Stg.URLDetector,
     Stg.URLValidator,
     Stg.URLExpander
   )
@@ -289,22 +293,6 @@ trait DsPipelineCommon extends ConfigGetter {
       .setBaseDocumentCol(c.baseText.nBOW)
       .setOutputCol(c.similarity)
 
-  def getTextToLatin(c: ColnamesURL): ICUTransformer =
-    new ICUTransformer()
-      .setTransliteratorID("Lower; Any-Latin; Latin-ASCII")
-      .setInputCol(c.urls)
-      .setOutputCol(c.textAllLatin)
-
-  def getURLValidator(c: ColnamesURL): URLValidator =
-    new URLValidator()
-      .setInputCol(c.textAllLatin)
-      .setOutputCol(c.validURLs)
-
-  def getURLExpander(c: ColnamesURL): URLExpander =
-    new URLExpander()
-      .setInputCol(c.validURLs)
-      .setOutputCol(c.expandedURLs)
-
   def getStanfordCoreNLP(c: ColnamesText): StanfordCoreNLPTransformer =
     StanfordCoreNLPTransformer(StanfordPipelines(
       ("en", Tokenize(c.corenlpTokens), Pos(c.pos), Lemma(c.lemma), Ner(c.ner)),
@@ -381,6 +369,27 @@ trait DsPipelineCommon extends ConfigGetter {
   def getMean[T <: Colnames](c: ColnamesAggregated[T]): ColumnsAggregator =
     getColumnAggregator(c, ColumnsAggregator.mean)
 
+  def getTextToLatin(c: ColnamesURL): ICUTransformer =
+    new ICUTransformer()
+      .setTransliteratorID("Lower; Any-Latin; Latin-ASCII")
+      .setInputCol(c.text)
+      .setOutputCol(c.textAllLatin)
+
+  def getURLDetector(c: ColnamesURL): URLDetector =
+    new URLDetector()
+      .setInputCol(c.textAllLatin)
+      .setOutputCol(c.urls)
+
+  def getURLValidator(c: ColnamesURL): URLValidator =
+    new URLValidator()
+      .setInputCol(c.urls)
+      .setOutputCol(c.validURLs)
+
+  def getURLExpander(c: ColnamesURL): URLExpander =
+    new URLExpander()
+      .setInputCol(c.validURLs)
+      .setOutputCol(c.expandedURLs)
+
   val stagesOptions: Map[String, _ => Transformer] =
     Map[String, _ => Transformer](
       Stg.TextCleaner -> getTextCleaner _,
@@ -399,7 +408,8 @@ trait DsPipelineCommon extends ConfigGetter {
       Stg.DistanceCalculator -> getDistanceCalculator _,
       Stg.DistanceScorer -> getDistanceScorer _,
 
-      Stg.AllLatin -> getTextToLatin _,
+      Stg.URLAllLatin -> getTextToLatin _,
+      Stg.URLDetector -> getURLDetector _,
       Stg.URLValidator -> getURLValidator _,
       Stg.URLExpander -> getURLExpander _,
 
