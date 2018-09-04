@@ -56,8 +56,8 @@ class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSiz
 
           } catch {
             case e: Exception =>
-              URLUnshortener.LOGGER
-                .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
+              //  URLUnshortener.LOGGER
+              //    .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
               None
           }
 
