@@ -41,17 +41,18 @@ trait HasTransliterator extends Params {
 
   var additionalTransliteratorsAdded: Boolean = false
 
-  final val additionalTransliterators: Param[List[Transliterator]] =
+  final val additionalTransliteratorsList: Param[List[Transliterator]] =
     new Param[List[Transliterator]](
       this,
       "additionalTransliteratorsList",
       "List of additional Transliterator to register"
     )
 
-  final def getAdditionalTransliteratorsList: List[Transliterator] = $(additionalTransliterators)
+  final def getAdditionalTransliteratorsList: List[Transliterator] =
+    $(additionalTransliteratorsList)
 
   final def setAdditionalTransliteratorsList(value: List[Transliterator]): this.type = {
     additionalTransliteratorsAdded = false
-    set(additionalTransliterators, value)
+    set(additionalTransliteratorsList, value)
   }
 }

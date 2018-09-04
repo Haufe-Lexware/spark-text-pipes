@@ -45,6 +45,8 @@ class ICUTransformer(override val uid: String)
 
   setDefault(transliteratorID, "Lower; Any-Latin; Latin-ASCII")
 
+  setDefault(additionalTransliteratorsList, List())
+
   val transliteratorsB: Broadcast[ICUTransliterators.type] =
     SparkSession.builder().getOrCreate().sparkContext.broadcast(ICUTransliterators)
 
@@ -53,8 +55,10 @@ class ICUTransformer(override val uid: String)
     // We might need to register additional transliterators here, at runtime.
     // Since Spark is distributed, a worker node Transliterator won't have any
     // user defined transliterators registered
-    if (! additionalTransliteratorsAdded)
-      $(additionalTransliterators).foreach(t => Transliterator.registerInstance(t))
+    if (! additionalTransliteratorsAdded) {
+      $(additionalTransliteratorsList).foreach(t => Transliterator.registerInstance(t))
+      additionalTransliteratorsAdded = true
+    }
 
     transliteratorsB
       .value
