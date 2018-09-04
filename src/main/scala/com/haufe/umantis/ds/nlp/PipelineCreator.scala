@@ -161,7 +161,7 @@ trait Stg {
   val DistanceCalculator: String = "DistanceCalculator"
   val DistanceScorer: String = "DistanceScorer"
 
-  val allLatin: String = "AllLatin"
+  val AllLatin: String = "AllLatin"
   val URLValidator: String = "URLValidator"
   val URLExpander: String = "URLExpander"
 
@@ -196,7 +196,7 @@ object StandardPipeline {
   )
 
   val URLProcessing: Seq[String] = Seq(
-    Stg.allLatin,
+    Stg.AllLatin,
     Stg.URLValidator,
     Stg.URLExpander
   )
@@ -289,7 +289,7 @@ trait DsPipelineCommon extends ConfigGetter {
       .setBaseDocumentCol(c.baseText.nBOW)
       .setOutputCol(c.similarity)
 
-  def textToLatin(c: ColnamesURL): ICUTransformer =
+  def getTextToLatin(c: ColnamesURL): ICUTransformer =
     new ICUTransformer()
       .setTransliteratorID("Lower; Any-Latin; Latin-ASCII")
       .setInputCol(c.urls)
@@ -399,6 +399,7 @@ trait DsPipelineCommon extends ConfigGetter {
       Stg.DistanceCalculator -> getDistanceCalculator _,
       Stg.DistanceScorer -> getDistanceScorer _,
 
+      Stg.AllLatin -> getTextToLatin _,
       Stg.URLValidator -> getURLValidator _,
       Stg.URLExpander -> getURLExpander _,
 
