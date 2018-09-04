@@ -15,14 +15,13 @@
 
 package com.haufe.umantis.ds.utils
 
-import java.io.IOException
-import java.net.{HttpURLConnection, Proxy, URL}
-
-import com.google.common.io.Closeables
 import com.twitter.util.SynchronizedLruMap
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
+
+import dispatch._
+import Defaults._
 
 
 /**
@@ -33,67 +32,42 @@ import scala.annotation.tailrec
 class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSize: Int)
   extends Serializable {
 
-  @transient lazy val cache = new SynchronizedLruMap[String, URL](cacheSize)
+  @transient lazy val cache = new SynchronizedLruMap[String, String](cacheSize)
 
   /**
-    * Expand the given short {@link URL}
+    * Expand the given short URL
     *
     * @param address The URL
     * @return The unshortened URL
     */
   @tailrec
-  final def expand(address: URL): URL = {
+  final def expand(address: String): String = {
 
-    cache.get(address.toString) match {
+    cache.get(address) match {
       case Some(url) => url
 
       case _ =>
-        var connection: HttpURLConnection = null
-        //Connect & check for the location field
-        val expandedURL: Option[URL] = try {
-          connection = address.openConnection(Proxy.NO_PROXY).asInstanceOf[HttpURLConnection]
-          connection.setConnectTimeout(connectTimeout)
-          connection.setInstanceFollowRedirects(false)
-          connection.setReadTimeout(readTimeout)
-          connection.connect()
-          val expandedURL: String = connection.getHeaderField("Location")
-          if (expandedURL != null) {
-            Some(new URL(expandedURL))
-          } else {
-            None
-          }
-        } catch {
-          case e: Exception =>
-            URLUnshortener.LOGGER
-              .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
-            None
-        } finally {
+        val future = Http.default(url(address))
+
+        val expandedURL: Option[String] =
           try {
-            if (connection != null)
-              Closeables.close(connection.getInputStream, false)
+            val response = future()
+            Option(response.getHeaders.get("Location")) // returns null if Location not found
+
           } catch {
-            case e: IOException =>
-              URLUnshortener.LOGGER.warn("Unable to close connection stream", e.getMessage: Any)
+            case e: Exception =>
+              URLUnshortener.LOGGER
+                .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
+              None
           }
-        }
 
         expandedURL match {
           case None => address
-          case Some(url) =>
-            cache.put(address.toString, url)
-            expand(url)
+          case Some(newUrl) =>
+            cache.put(address.toString, newUrl)
+            expand(newUrl)
         }
     }
-  }
-
-  /**
-    * Expand the given short URL in String format
-    *
-    * @param address The URL
-    * @return The unshortened URL
-    */
-  def expand(address: String): String = {
-    expand(new URL(address)).toString
   }
 
   /**
