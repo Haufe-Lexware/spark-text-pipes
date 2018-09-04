@@ -52,18 +52,22 @@ class ICUTransformer(override val uid: String)
 
   def transliterateText(text: String): String = {
 
-    // We might need to register additional transliterators here, at runtime.
-    // Since Spark is distributed, a worker node Transliterator won't have any
-    // user defined transliterators registered
-    if (! additionalTransliteratorsAdded) {
-      $(additionalTransliteratorsList).foreach(t => Transliterator.registerInstance(t))
-      additionalTransliteratorsAdded = true
-    }
+    if (text != null) {
+      // We might need to register additional transliterators here, at runtime.
+      // Since Spark is distributed, a worker node Transliterator won't have any
+      // user defined transliterators registered
+      if (!additionalTransliteratorsAdded) {
+        $(additionalTransliteratorsList).foreach(t => Transliterator.registerInstance(t))
+        additionalTransliteratorsAdded = true
+      }
 
-    transliteratorsB
-      .value
-      .getTransformer(getTransliteratorID)
-      .transliterate(text)
+      transliteratorsB
+        .value
+        .getTransformer(getTransliteratorID)
+        .transliterate(text)
+    } else {
+      null
+    }
   }
 
   override protected def createTransformFunc: String => String = transliterateText
