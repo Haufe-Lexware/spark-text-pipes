@@ -47,10 +47,10 @@ class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSiz
       case Some(url) => url
 
       case _ =>
-        val future = Http.default(url(address))
-
         val expandedURL: Option[String] =
           try {
+            val future = Http.default(url(address))
+
             val response = future()
             Option(response.getHeaders.get("Location")) // returns null if Location not found
 
