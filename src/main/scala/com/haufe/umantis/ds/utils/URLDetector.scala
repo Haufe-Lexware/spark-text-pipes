@@ -21,7 +21,8 @@ class URLDetector(override val uid: String)
       val urls = new UrlDetector(text, UrlDetectorOptions.HTML)
         .detect
         .asScala
-        .map(_.normalize.toString)
+        .map(_.toString)
+//        .map(_.normalize.toString)
       if (urls.nonEmpty) urls else Seq()
     }
 

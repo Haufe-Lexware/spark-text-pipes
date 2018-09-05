@@ -51,14 +51,17 @@ abstract class HttpBackend extends Serializable {
     runWithTimeout(timeoutMs)(f).getOrElse(default)
   }
 
-
-  def expandURL(address: CheckedURL): Option[String] = {
+  @tailrec
+  final def expandURL(address: CheckedURL, nrTry: Int = 1): Option[String] = {
     val res = runWithTimeout(5000) {doExpandURL(address)}
     res match {
+      case Some(optStr) => optStr
       case None =>
         println(s"timeout in http backend: ${address.origUrl}")
-        None
-      case Some(optStr) => optStr
+        if (nrTry > 5)
+          None
+        else
+          expandURL(address, nrTry + 1)
     }
   }
 }
