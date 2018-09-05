@@ -38,7 +38,7 @@ class URLUnshortenerSpec extends BaseSpec {
 
     val checkedURL = unshortener.expand(expandableURL)
     checkedURL.finalUrl shouldBe googleURL
-    checkedURL.origUrl shouldBe googleURL
+    checkedURL.origUrl shouldBe expandableURL
     checkedURL.numRedirects shouldBe 1
     checkedURL.connects shouldBe true
 
