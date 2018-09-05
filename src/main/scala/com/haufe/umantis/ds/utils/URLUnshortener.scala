@@ -19,9 +19,16 @@ import com.twitter.util.SynchronizedLruMap
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
-
 import dispatch._
 import Defaults._
+
+
+case class CheckedURL(
+                       origUrl: String,
+                       finalUrl: String,
+                       connects: Boolean,
+                       numRedirects: Int
+                     )
 
 
 /**
@@ -32,43 +39,60 @@ import Defaults._
 class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSize: Int)
   extends Serializable {
 
-  @transient lazy val cache = new SynchronizedLruMap[String, String](cacheSize)
+  @transient lazy val cache = new SynchronizedLruMap[String, CheckedURL](cacheSize)
 
   /**
     * Expand the given short URL
     *
     * @param address The URL
-    * @return The unshortened URL
+    * @return A CheckedURL case class with info about finalURL, connection, and number of redirects
     */
   @tailrec
-  final def expand(address: String): String = {
+  final def expand(address: CheckedURL): CheckedURL = {
 
-    cache.get(address) match {
+    cache.get(address.origUrl) match {
       case Some(url) => url
 
       case _ =>
-        val expandedURL: Option[String] =
-          try {
-            val future = Http.default(url(address))
+        val expandedURL: Either[CheckedURL, Option[String]] = try {
+          val future = Http.default(url(address.finalUrl))
+          val response = future()
 
-            val response = future()
-            Option(response.getHeaders.get("Location")) // returns null if Location not found
+          // response.getHeaders.get(.) returns null if "Location" not found
+          Right(Option(response.getHeaders.get("Location")))
 
-          } catch {
-            case e: Exception =>
-              //  URLUnshortener.LOGGER
-              //    .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
-              None
-          }
+        } catch {
+          case e: Exception =>
+            //  URLUnshortener.LOGGER
+            //    .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
+            Left(
+              CheckedURL(address.origUrl, address.finalUrl, connects=false, address.numRedirects)
+            )
+        }
 
         expandedURL match {
-          case None => address
-          case Some(newUrl) =>
-            cache.put(address.toString, newUrl)
-            expand(newUrl)
+          case Left(value) => value
+
+          case Right(value) => value match {
+            case None =>
+              val checkedURL =
+                CheckedURL(address.origUrl, address.finalUrl, connects = true, address.numRedirects)
+              cache.put(address.origUrl, checkedURL)
+              checkedURL
+
+            case Some(newUrl) =>
+              expand(
+                CheckedURL(address.origUrl, newUrl, connects = true, address.numRedirects + 1)
+              )
+          }
         }
     }
   }
+
+  def expand(address: String): CheckedURL = {
+    expand(CheckedURL(address, address, connects=false, numRedirects = 0))
+  }
+
 
   /**
     * Returns true if the URL expands
@@ -77,7 +101,8 @@ class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSiz
     * @return If the URL expands
     */
   def doesExpand(address: String): Boolean = {
-    address != expand(address)
+    val checkedURL = expand(address)
+    checkedURL.numRedirects > 0
   }
 }
 

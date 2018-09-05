@@ -10,7 +10,7 @@ import org.apache.spark.sql.types.DataType
 
 class URLExpander(override val uid: String)
   // first arg is input, second output, third is class name
-  extends UnaryTransformer[Seq[String], Seq[String], URLExpander] {
+  extends UnaryTransformer[Seq[String], Seq[CheckedURL], URLExpander] {
 
   def this() = this(Identifiable.randomUID("URLExpander"))
 
@@ -18,11 +18,11 @@ class URLExpander(override val uid: String)
   val expanderB: Broadcast[URLUnshortener] =
     SparkSession.builder().getOrCreate().sparkContext.broadcast(expander)
 
-  def expandURLs(urls: Seq[String]): Seq[String] = {
+  def expandURLs(urls: Seq[String]): Seq[CheckedURL] = {
     urls.map(url => expanderB.value.expand(url))
   }
 
-  override protected def createTransformFunc: Seq[String] => Seq[String] = expandURLs
+  override protected def createTransformFunc: Seq[String] => Seq[CheckedURL] = expandURLs
 
 
   override protected def validateInputType(inputType: DataType): Unit = {
@@ -30,6 +30,6 @@ class URLExpander(override val uid: String)
   }
 
   override protected def outputDataType: DataType = {
-    schemaFor[Seq[String]].dataType
+    schemaFor[Seq[CheckedURL]].dataType
   }
 }

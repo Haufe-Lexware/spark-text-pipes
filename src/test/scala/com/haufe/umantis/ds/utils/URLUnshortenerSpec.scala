@@ -31,17 +31,32 @@ class URLUnshortenerSpec extends BaseSpec {
   val doubleRedirectOneHop = "https://httpstat.us/301"
   val doubleRedirectFinalDestination = "https://httpstat.us"
 
+  val nonExisting = "http://nonexistiningurl.nada"
+
   "URLUnshortener" should "expand expandable URLs" in {
     val unshortener = URLUnshortener()
 
-    unshortener.expand(expandableURL) shouldBe googleURL
-    unshortener.expand(doubleRedirect) shouldBe doubleRedirectFinalDestination
+    val checkedURL = unshortener.expand(expandableURL)
+    checkedURL.finalUrl shouldBe googleURL
+    checkedURL.origUrl shouldBe googleURL
+    checkedURL.numRedirects shouldBe 1
+    checkedURL.connects shouldBe true
+
+    val doubleRedirectChecked = unshortener.expand(doubleRedirect)
+    doubleRedirectChecked.finalUrl shouldBe doubleRedirectFinalDestination
+    doubleRedirectChecked.origUrl shouldBe doubleRedirect
+    doubleRedirectChecked.numRedirects shouldBe 2
+    doubleRedirectChecked.connects shouldBe true
   }
 
   "URLUnshortener" should "return the same URL if it is not expandable" in {
     val unshortener = URLUnshortener()
 
-    unshortener.expand(googleURL) shouldBe googleURL
+    val googleChecked = unshortener.expand(googleURL)
+    googleChecked.finalUrl shouldBe googleURL
+    googleChecked.origUrl shouldBe googleURL
+    googleChecked.numRedirects shouldBe 0
+    googleChecked.connects shouldBe true
   }
 
   "URLUnshortener" should "maintain a cache of expanded URLs" in {
@@ -55,6 +70,18 @@ class URLUnshortenerSpec extends BaseSpec {
 
     unshortener.expand(doubleRedirect)
     unshortener.cache should contain key doubleRedirect
-    unshortener.cache should contain key doubleRedirectOneHop
+
+    // because only final urls are cached
+    unshortener.cache shouldNot contain key doubleRedirectOneHop
+  }
+
+  "URLUnshortener" should "correclty deal with non-existing URLs" in {
+    val unshortener = URLUnshortener()
+
+    val nonExistingChecked = unshortener.expand(nonExisting)
+    nonExistingChecked.finalUrl shouldBe nonExisting
+    nonExistingChecked.origUrl shouldBe nonExisting
+    nonExistingChecked.connects shouldBe false
+    nonExistingChecked.numRedirects shouldBe 0
   }
 }
