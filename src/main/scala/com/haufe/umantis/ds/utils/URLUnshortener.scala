@@ -118,8 +118,8 @@ class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSiz
   */
 object URLUnshortener {
   private val LOGGER = LoggerFactory.getLogger(classOf[URLUnshortener])
-  val DEFAULT_CONNECT_TIMEOUT = 1000
-  val DEFAULT_READ_TIMEOUT = 1000
+  val DEFAULT_CONNECT_TIMEOUT = 300
+  val DEFAULT_READ_TIMEOUT = 300
   val DEFAULT_CACHE_SIZE = 100000
 
   def apply(): URLUnshortener = {
