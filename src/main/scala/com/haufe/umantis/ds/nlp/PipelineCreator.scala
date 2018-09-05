@@ -387,7 +387,7 @@ trait DsPipelineCommon extends ConfigGetter {
 
   def getURLExpander(c: ColnamesURL): URLExpander =
     new URLExpander()
-      .setInputCol(c.validURLs)
+      .setInputCol(c.urls)
       .setOutputCol(c.expandedURLs)
 
   val stagesOptions: Map[String, _ => Transformer] =
