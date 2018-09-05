@@ -51,7 +51,7 @@ abstract class HttpBackend extends Serializable {
     runWithTimeout(timeoutMs)(f).getOrElse(default)
   }
 
-  def expandURL(address: CheckedURL): Option[String] = expandURL(address)
+  def expandURL(address: CheckedURL): Option[String] = doExpandURL(address)
 //
 //  @tailrec
 //  final def expandURL(address: CheckedURL, nrTry: Int = 1): Option[String] = {
