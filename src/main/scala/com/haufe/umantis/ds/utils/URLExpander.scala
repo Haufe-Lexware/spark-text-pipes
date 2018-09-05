@@ -15,31 +15,20 @@
 
 package com.haufe.umantis.ds.utils
 
-import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
 import org.apache.spark.sql.types.{StructField, StructType}
 import com.haufe.umantis.ds.nlp.params.ValidateColumnSchema
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.sql.functions.{col, udf}
 
 
 class URLExpander(override val uid: String)
-  // first arg is input, second output, third is class name
   extends Transformer with HasInputCol with HasOutputCol with ValidateColumnSchema {
 
   def this() = this(Identifiable.randomUID("URLExpander"))
-
-  val expander: URLUnshortener = URLUnshortener()
-  val expanderB: Broadcast[URLUnshortener] =
-    SparkSession.builder().getOrCreate().sparkContext.broadcast(expander)
-
-  def expandURLs(urls: Seq[String]): Seq[CheckedURL] = {
-    urls.map(url => expanderB.value.expand(url))
-  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     transformSchema(dataset.schema, logging = true)
@@ -49,9 +38,9 @@ class URLExpander(override val uid: String)
 
       iter.map(r => {
         val urls = r.getAs[Seq[String]]($(inputCol))
-        val expandedUrls = urls.map(url => expander.expand(url))
+        val expandedUrls: Array[CheckedURL] = urls.map(url => expander.expand(url)).toArray
 
-        Row.fromSeq(r.toSeq ++ Seq(expandedUrls))
+        Row.fromSeq(r.toSeq ++ Array(expandedUrls))
       })
     })
 
