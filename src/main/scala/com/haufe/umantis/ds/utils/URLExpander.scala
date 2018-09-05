@@ -61,7 +61,8 @@ class URLExpander(override val uid: String)
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
     val outputFields = schema.fields :+
-      StructField($(outputCol), schemaFor[Seq[CheckedURL]].dataType, nullable = false)
+      StructField($(outputCol), schemaFor[Array[CheckedURL]].dataType, nullable = false)
+
     StructType(outputFields)
   }
 
