@@ -7,6 +7,7 @@ services:
     container_name: master
     ports:
       - "8080:8080"
+      - "4040:4040"
       - "7077:7077"
       - "80:80"
     environment:
