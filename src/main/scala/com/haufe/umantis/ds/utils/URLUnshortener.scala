@@ -37,7 +37,30 @@ case class CheckedURL(
                      )
 
 abstract class HttpBackend extends Serializable {
-  def expandURL(address: CheckedURL): Option[String]
+
+  def doExpandURL(address: CheckedURL): Option[String]
+
+  import scala.concurrent._
+  import scala.concurrent.duration._
+
+  def runWithTimeout[T](timeoutMs: Long)(f: => T) : Option[T] = {
+    Await.result(Future(f), timeoutMs milliseconds).asInstanceOf[Option[T]]
+  }
+
+  def runWithTimeout[T](timeoutMs: Long, default: T)(f: => T) : T = {
+    runWithTimeout(timeoutMs)(f).getOrElse(default)
+  }
+
+
+  def expandURL(address: CheckedURL): Option[String] = {
+    val res = runWithTimeout(5000) {doExpandURL(address)}
+    res match {
+      case None =>
+        println(s"timeout in http backend: ${address.origUrl}")
+        None
+      case Some(optStr) => optStr
+    }
+  }
 }
 
 /**
@@ -46,7 +69,7 @@ abstract class HttpBackend extends Serializable {
   */
 class AsyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends HttpBackend {
 
-  def expandURL(address: CheckedURL): Option[String] = {
+  def doExpandURL(address: CheckedURL): Option[String] = {
 
     val http = dispatch.Http.withConfiguration(_
       .setConnectTimeout(connectTimeout)
@@ -59,6 +82,7 @@ class AsyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends Ht
     // response.getHeaders.get(.) returns null if "Location" not found
     Option(response.getHeaders.get("Location"))
   }
+
 }
 
 /**
@@ -67,7 +91,7 @@ class AsyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends Ht
   */
 class SyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends HttpBackend {
 
-  def expandURL(address: CheckedURL): Option[String] = {
+  def doExpandURL(address: CheckedURL): Option[String] = {
     val http = scalaj.http.Http
     val response = http(address.finalUrl)
       .timeout(connTimeoutMs = connectTimeout, readTimeoutMs = readTimeout)
