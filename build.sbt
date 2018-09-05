@@ -16,7 +16,8 @@ lazy val root = (project in file(".")).dependsOn(akkaKryoSerializerUpdated)
 dependencyOverrides ++= Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % "2.8.4",
   "com.fasterxml.jackson.core" % "jackson-databind" % "2.8.4",
-	"com.google.guava" % "guava" % "15.0" // for tests
+	"com.google.guava" % "guava" % "15.0", // for tests
+  "io.netty" % "netty-common" % "4.1.29.Final"
 )
 
 
@@ -159,6 +160,9 @@ libraryDependencies += "com.ibm.icu" % "icu4j" % "62.1"
 
 // https://mvnrepository.com/artifact/com.linkedin.urls/url-detector
 libraryDependencies += "com.linkedin.urls" % "url-detector" % "0.1.17"
+
+// https://mvnrepository.com/artifact/io.netty/netty-common
+libraryDependencies += "io.netty" % "netty-common" % "4.1.29.Final"
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build
