@@ -3,7 +3,7 @@ package com.haufe.umantis.ds.utils
 import com.ibm.icu.text.{Replaceable, Transliterator, UnicodeFilter}
 
 class EmojiRemoverTransliterator (val ID: String, val filter: UnicodeFilter)
-  extends Transliterator(ID, filter) with Serializable {
+  extends Transliterator(ID, filter) {
 
   def this() {
     this("Emoji-Remover", null)
