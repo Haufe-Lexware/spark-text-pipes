@@ -101,7 +101,7 @@ class ICUTransformer(override val uid: String) extends Transformer
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
     val outputFields = schema.fields :+
-      StructField($(outputCol), schemaFor[String].dataType, nullable = false)
+      StructField($(outputCol), schemaFor[String].dataType, nullable = true)
 
     StructType(outputFields)
   }
