@@ -31,16 +31,17 @@ class URLExpander(override val uid: String)
   def this() = this(Identifiable.randomUID("URLExpander"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    transformSchema(dataset.schema, logging = true)
-
     val result = dataset.toDF().rdd.mapPartitions(iter => {
       val expander: URLUnshortener = URLUnshortener()
 
       iter.map(r => {
         val urls = r.getAs[Seq[String]]($(inputCol))
-        val expandedUrls: Array[CheckedURL] = urls.map(url => expander.expand(url)).toArray
+        val expandedUrls = urls.map(url => {
+          val res = expander.expand(url)
+          Row(res.origUrl, res.finalUrl, res.connects, res.numRedirects)
+        })
 
-        Row.fromSeq(r.toSeq ++ Array(expandedUrls))
+        Row.fromSeq(r.toSeq ++ Seq(expandedUrls))
       })
     })
 
