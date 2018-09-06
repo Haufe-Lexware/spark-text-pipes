@@ -60,7 +60,7 @@ abstract class HttpBackend extends Serializable {
       case Some(optStr) => optStr
       case None =>
         if (nrTry > 5) {
-          println(s"timeout in http backend: ${address.origUrl}")
+          println(s"timeout in http backend: ${address.origUrl}, $nrTry")
           None
         }
         else
