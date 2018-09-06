@@ -61,7 +61,7 @@ class ICUTransformer(override val uid: String) extends Transformer
   override def transform(dataset: Dataset[_]): DataFrame = {
     val result = dataset.toDF().rdd.mapPartitions(iter => {
 
-      // Since this is executed remotely and some custmo transliterators might not be serializeble
+      // Since this is executed remotely and some custom transliterators might not be serializeble
       // (e.g. EmojiRemoverTransliterator), we use mapPartitions and register the instances here.
       transliteratorsB
         .value
@@ -80,7 +80,7 @@ class ICUTransformer(override val uid: String) extends Transformer
           } else null
         }
 
-        Row.fromSeq(r.toSeq ++ Seq(transliterated))
+        Row.fromSeq(r.toSeq :+ transliterated)
       })
     })
 

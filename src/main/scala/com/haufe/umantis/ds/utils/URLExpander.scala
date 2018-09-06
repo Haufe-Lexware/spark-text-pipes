@@ -41,7 +41,7 @@ class URLExpander(override val uid: String)
           Row(res.origUrl, res.finalUrl, res.connects, res.numRedirects)
         })
 
-        Row.fromSeq(r.toSeq ++ Seq(expandedUrls))
+        Row.fromSeq(r.toSeq :+ expandedUrls)
       })
     })
 
