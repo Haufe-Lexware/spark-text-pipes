@@ -16,19 +16,31 @@
 
 package com.haufe.umantis.ds.nlp
 
-import com.haufe.umantis.ds.nlp.params.HasTransliterator
+import com.haufe.umantis.ds.nlp.params.{HasTransliterator, ValidateColumnSchema}
+import com.haufe.umantis.ds.utils.EmojiRemoverTransliterator
 import com.ibm.icu.text.Transliterator
 import org.apache.spark.broadcast.Broadcast
-import org.apache.spark.ml.UnaryTransformer
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.Transformer
+import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession}
 import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
-import org.apache.spark.sql.types.DataType
+import org.apache.spark.sql.types.{StructField, StructType}
 
 import scala.collection.mutable
 
+
 object ICUTransliterators extends Serializable {
 
+  // This is mutable because when used by libraries, users may decide to create new
+  // transliterators and they need to add them here
+  lazy val additionalTransliterators: mutable.Set[Unit => Transliterator] =
+    mutable.Set[Unit => Transliterator](
+      {_ => new EmojiRemoverTransliterator()}
+    )
+
+  // cached transliterators
   @transient lazy val transliterators: mutable.Map[String, Transliterator] = mutable.Map()
 
   def getTransformer(transformation: String): Transliterator = {
@@ -36,47 +48,63 @@ object ICUTransliterators extends Serializable {
   }
 }
 
-
-class ICUTransformer(override val uid: String)
-// first arg is input, second output, third is class name
-  extends UnaryTransformer[String, String, ICUTransformer] with HasTransliterator {
+class ICUTransformer(override val uid: String) extends Transformer
+  with HasInputCol with HasOutputCol with HasTransliterator with ValidateColumnSchema {
 
   def this() = this(Identifiable.randomUID("ICUTransformer"))
 
   setDefault(transliteratorID, "Lower; Any-Latin; Latin-ASCII")
 
-  setDefault(additionalTransliteratorsList, List())
-
   val transliteratorsB: Broadcast[ICUTransliterators.type] =
     SparkSession.builder().getOrCreate().sparkContext.broadcast(ICUTransliterators)
 
-  def transliterateText(text: String): String = {
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val result = dataset.toDF().rdd.mapPartitions(iter => {
 
-    if (text != null) {
-      // We might need to register additional transliterators here, at runtime.
-      // Since Spark is distributed, a worker node Transliterator won't have any
-      // user defined transliterators registered
-      if (!additionalTransliteratorsAdded) {
-        $(additionalTransliteratorsList).foreach(t => Transliterator.registerInstance(t))
-        additionalTransliteratorsAdded = true
-      }
-
+      // Since this is executed remotely and some custmo transliterators might not be serializeble
+      // (e.g. EmojiRemoverTransliterator), we use mapPartitions and register the instances here.
       transliteratorsB
         .value
-        .getTransformer(getTransliteratorID)
-        .transliterate(text)
-    } else {
-      null
+        .additionalTransliterators
+        .foreach(transliteratorCreator => Transliterator.registerInstance(transliteratorCreator()))
+
+      iter.map(r => {
+        val text = r.getAs[String]($(inputCol))
+
+        val transliterated = {
+          if (text != null) {
+            transliteratorsB
+              .value
+              .getTransformer(getTransliteratorID)
+              .transliterate(text)
+          } else null
+        }
+
+        Row.fromSeq(r.toSeq ++ Seq(transliterated))
+      })
+    })
+
+    dataset.sparkSession.createDataFrame(result, transformSchema(dataset.schema))
+  }
+
+  /** @group setParam */
+  def setInputCol(value: String): this.type = set(inputCol, value)
+
+  /** @group setParam */
+  def setOutputCol(value: String): this.type = set(outputCol, value)
+
+
+  override def transformSchema(schema: StructType): StructType = {
+    validateColumnSchema($(inputCol), schemaFor[String].dataType, schema)
+
+    if (schema.fieldNames.contains($(outputCol))) {
+      throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
+    val outputFields = schema.fields :+
+      StructField($(outputCol), schemaFor[String].dataType, nullable = false)
+
+    StructType(outputFields)
   }
 
-  override protected def createTransformFunc: String => String = transliterateText
-
-  override protected def validateInputType(inputType: DataType): Unit = {
-    require(inputType == schemaFor[String].dataType)
-  }
-
-  override protected def outputDataType: DataType = {
-    schemaFor[String].dataType
-  }
+  override def copy(extra: ParamMap): ICUTransformer = defaultCopy[ICUTransformer](extra)
 }

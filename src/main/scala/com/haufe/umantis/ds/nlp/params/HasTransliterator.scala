@@ -15,7 +15,6 @@
 
 package com.haufe.umantis.ds.nlp.params
 
-import com.ibm.icu.text.Transliterator
 import org.apache.spark.ml.param.{Param, Params}
 
 /**
@@ -36,23 +35,5 @@ trait HasTransliterator extends Params {
   /** @group setParam */
   final def setTransliteratorID(value: String): this.type = {
     set(transliteratorID, value)
-  }
-
-
-  var additionalTransliteratorsAdded: Boolean = false
-
-  final val additionalTransliteratorsList: Param[List[Transliterator]] =
-    new Param[List[Transliterator]](
-      this,
-      "additionalTransliteratorsList",
-      "List of additional Transliterator to register"
-    )
-
-  final def getAdditionalTransliteratorsList: List[Transliterator] =
-    $(additionalTransliteratorsList)
-
-  final def setAdditionalTransliteratorsList(value: List[Transliterator]): this.type = {
-    additionalTransliteratorsAdded = false
-    set(additionalTransliteratorsList, value)
   }
 }
