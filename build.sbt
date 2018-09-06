@@ -181,4 +181,3 @@ Project.inConfig(Test)(baseAssemblySettings)
 assemblyJarName in (Test, assembly) := s"${name.value}-test-${version.value}.jar"
 
 fork in ThisBuild in Test:= false
-
