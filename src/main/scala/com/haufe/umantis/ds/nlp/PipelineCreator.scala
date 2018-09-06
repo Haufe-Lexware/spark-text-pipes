@@ -22,6 +22,7 @@ import com.haufe.umantis.ds.nlp.stanford.corenlp._
 import com.haufe.umantis.ds.spark.{NormalizedBagOfWords, UnaryUDFTransformer}
 import com.haufe.umantis.ds.utils.{ConfigGetter, URLDetector, URLExpander, URLValidator}
 import com.haufe.umantis.ds.wmd.{EuclideanDistanceNormalized, WordMoverDistanceCalculator}
+import com.haufe.umantis.ds.utils.EmojiRemoverTransliterator
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.feature.RegexTokenizer
 
@@ -371,7 +372,10 @@ trait DsPipelineCommon extends ConfigGetter {
 
   def getTextToLatin(c: ColnamesURL): ICUTransformer =
     new ICUTransformer()
-      .setTransliteratorID("Lower; Any-Latin; Latin-ASCII")
+      .setAdditionalTransliteratorsList(List(
+        new EmojiRemoverTransliterator()
+      ))
+      .setTransliteratorID("Emoji-Remover; Lower; Any-Latin; Latin-ASCII")
       .setInputCol(c.text)
       .setOutputCol(c.textAllLatin)
 

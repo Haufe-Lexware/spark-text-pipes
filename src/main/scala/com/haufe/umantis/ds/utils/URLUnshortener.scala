@@ -23,6 +23,7 @@ import dispatch._
 import Defaults._
 import com.haufe.umantis.ds.utils.BackendType.BackendType
 
+
 object BackendType extends Enumeration {
   type BackendType = Value
   val Sync, Async = Value

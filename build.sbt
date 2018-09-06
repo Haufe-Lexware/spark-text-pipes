@@ -162,6 +162,9 @@ libraryDependencies += "com.linkedin.urls" % "url-detector" % "0.1.17"
 
 libraryDependencies +=  "org.scalaj" %% "scalaj-http" % "2.4.1"
 
+// https://mvnrepository.com/artifact/com.vdurmont/emoji-java
+libraryDependencies += "com.vdurmont" % "emoji-java" % "4.0.0"
+
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build
