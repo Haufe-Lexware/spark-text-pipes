@@ -53,20 +53,20 @@ abstract class HttpBackend extends Serializable {
 
 //  def expandURL(address: CheckedURL): Option[String] = doExpandURL(address)
 
-  @tailrec
-  final def expandURL(address: CheckedURL, nrTry: Int = 1): Option[String] = {
-    val res = runWithTimeout(5000) {doExpandURL(address)}
-    res match {
-      case Some(optStr) => optStr
-      case None =>
-        if (nrTry > 5) {
-          println(s"timeout in http backend: ${address.origUrl}, $nrTry")
-          None
-        }
-        else
-          expandURL(address, nrTry + 1)
-    }
-  }
+//  @tailrec
+//  final def expandURL(address: CheckedURL, nrTry: Int = 1): Option[String] = {
+//    val res = runWithTimeout(5000) {doExpandURL(address)}
+//    res match {
+//      case Some(optStr) => optStr
+//      case None =>
+//        if (nrTry > 5) {
+//          println(s"timeout in http backend: ${address.origUrl}, $nrTry")
+//          None
+//        }
+//        else
+//          expandURL(address, nrTry + 1)
+//    }
+//  }
 }
 
 /**
@@ -138,7 +138,7 @@ class URLUnshortener(
       case _ =>
         val expandedURL: Either[CheckedURL, Option[String]] =
           try {
-            Right(httpBackend.expandURL(address))
+            Right(httpBackend.doExpandURL(address))
           } catch {
             case e: Exception =>
               //  URLUnshortener.LOGGER
