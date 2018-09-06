@@ -1,13 +1,14 @@
 package com.haufe.umantis.ds.utils
 
 import com.vdurmont.emoji.EmojiParser
+import com.vdurmont.emoji.EmojiParser.UnicodeCandidate
+
+import scala.collection.JavaConverters._
 
 class EmojiParserExtended extends EmojiParser with Serializable {
-  def replaceAllEmojisWithSpace(str: String): String = {
-    val emojiTransformer: EmojiParser.EmojiTransformer = new EmojiParser.EmojiTransformer() {
-      override def transform(unicodeCandidate: EmojiParser.UnicodeCandidate) = " "
-    }
-
-    EmojiParser.parseFromUnicode(str, emojiTransformer)
-  }
+  def getAllUnicodeCandidates(input: String): List[UnicodeCandidate] =
+    EmojiParser
+      .getUnicodeCandidates(input)
+      .asScala
+      .toList
 }

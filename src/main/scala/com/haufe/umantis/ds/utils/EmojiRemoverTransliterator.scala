@@ -15,10 +15,17 @@ class EmojiRemoverTransliterator (val ID: String, val filter: UnicodeFilter)
                                               incremental: Boolean)
   : Unit = {
 
-    val replaced = new EmojiParserExtended().replaceAllEmojisWithSpace(text.toString)
+    val emojis = new EmojiParserExtended().getAllUnicodeCandidates(text.toString)
+
+    emojis.foreach(e => {
+      // if no Fitzpatrick, .getFitzpatrickEndIndex == .getEmojiEndIndex
+      val length = e.getFitzpatrickEndIndex - e.getEmojiStartIndex
+
+      // we replace with a number of spaces equal to the Emoji + Fitzpatrick length
+      text.replace(e.getEmojiStartIndex, e.getFitzpatrickEndIndex, " " * length)
+    })
 
     pos.start = pos.limit
-    text.replace(0, replaced.length, replaced)
   }
 }
 
