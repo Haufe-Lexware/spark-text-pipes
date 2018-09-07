@@ -26,7 +26,7 @@ class URLDetector(override val uid: String)
           val host = url.getHost
           host != null &&
             // this means a '@' was found, we filter emails here
-            url.getUsername != "" &&
+            // url.getUsername != "" &&
             // we filter non-existing tlds here
             URLDetector.tlds.contains(host.split('.').takeRight(1)(0))
         })
