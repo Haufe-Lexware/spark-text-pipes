@@ -41,16 +41,16 @@ abstract class HttpBackend extends Serializable {
 
   def doExpandURL(address: CheckedURL): Option[String]
 
-  import scala.concurrent._
-  import scala.concurrent.duration._
-
-  def runWithTimeout[T](timeoutMs: Long)(f: => T) : Option[T] = {
-    Await.result(Future(f), timeoutMs milliseconds).asInstanceOf[Option[T]]
-  }
-
-  def runWithTimeout[T](timeoutMs: Long, default: T)(f: => T) : T = {
-    runWithTimeout(timeoutMs)(f).getOrElse(default)
-  }
+//  import scala.concurrent._
+//  import scala.concurrent.duration._
+//
+//  def runWithTimeout[T](timeoutMs: Long)(f: => T) : Option[T] = {
+//    Await.result(Future(f), timeoutMs milliseconds).asInstanceOf[Option[T]]
+//  }
+//
+//  def runWithTimeout[T](timeoutMs: Long, default: T)(f: => T) : T = {
+//    runWithTimeout(timeoutMs)(f).getOrElse(default)
+//  }
 
 //  def expandURL(address: CheckedURL): Option[String] = doExpandURL(address)
 

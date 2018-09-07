@@ -202,7 +202,7 @@ object StandardPipeline {
   val URLProcessing: Seq[String] = Seq(
     Stg.URLAllLatin,
     Stg.URLDetector,
-    Stg.URLValidator,
+//    Stg.URLValidator,
     Stg.URLExpander
   )
 }
