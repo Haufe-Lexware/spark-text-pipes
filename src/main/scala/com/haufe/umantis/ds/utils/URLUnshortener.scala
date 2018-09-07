@@ -160,7 +160,7 @@ class URLUnshortener(
               checkedURL
 
             case Some(newUrl) =>
-              if (address.origUrl == newUrl || address.numRedirects > 10) {
+              if (address.finalUrl == newUrl || address.numRedirects > 10) {
                 // we avoid loops (e.g. infinite redirects because we're not holding a session)
                 CheckedURL(address.origUrl, newUrl, connects = true, address.numRedirects)
               } else {
