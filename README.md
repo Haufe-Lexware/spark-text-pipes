@@ -195,6 +195,14 @@ APPS_ROOT=~/code/apps
 Please consider that both `EmbeddingsDict` and `Text2Geolocation` need to be reacheable for 
 tests to work.
 
+### Debugging the dependencies graph
+```bash
+sbt dependencyBrowseGraph
+```
+
+Hint: Edit the resulting html where `<svg width=1280 height=1024>` and change the windows size
+if you wish so.  
+
 ## In your application
 
 Define the `build.sbt` of your Spark/Scala application as follows:
