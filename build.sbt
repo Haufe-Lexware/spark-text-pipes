@@ -165,6 +165,23 @@ libraryDependencies +=  "org.scalaj" %% "scalaj-http" % "2.4.1"
 // https://mvnrepository.com/artifact/com.vdurmont/emoji-java
 libraryDependencies += "com.vdurmont" % "emoji-java" % "4.0.0"
 
+// getting an always-fresh list of TLDs
+val tldsTask = Def.task {
+  println("Getting fresh list of TLDs...")
+  val file = (resourceManaged in Compile).value / "tld.list"
+  val contents = {
+    scala.io.Source.fromURL("http://data.iana.org/TLD/tlds-alpha-by-domain.txt")
+      .mkString
+      .split("\n").filterNot(_.startsWith("#"))
+      .map(_.toLowerCase)
+      .mkString("\n")
+  }
+  IO.write(file, contents)
+  Seq(file)
+}.taskValue
+resourceGenerators in Compile += tldsTask
+resourceGenerators in Test += tldsTask
+
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build

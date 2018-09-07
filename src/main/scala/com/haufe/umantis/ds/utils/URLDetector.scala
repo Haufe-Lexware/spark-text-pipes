@@ -21,8 +21,9 @@ class URLDetector(override val uid: String)
       val urls = new UrlDetector(text, UrlDetectorOptions.HTML)
         .detect
         .asScala
+        .map(_.normalize)
+        .filter(url => URLDetector.tlds.contains(url.getHost.split('.').takeRight(1)(0)))
         .map(_.toString)
-//        .map(_.normalize.toString)
       if (urls.nonEmpty) urls else Seq()
     }
 
@@ -62,4 +63,10 @@ class URLDetector(override val uid: String)
   override protected def outputDataType: DataType = {
     schemaFor[Seq[String]].dataType
   }
+}
+object URLDetector extends ConfigGetter with Serializable {
+  val tlds: Set[String] =
+    getConfigString("/tld.list")
+    .split("\n")
+    .toSet
 }
