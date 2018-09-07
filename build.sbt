@@ -178,9 +178,9 @@ val tldsTask = Def.task {
   }
   IO.write(file, contents)
   Seq(file)
-}.taskValue
-resourceGenerators in Compile += tldsTask
-resourceGenerators in Test += tldsTask
+}
+resourceGenerators in Compile += tldsTask.taskValue
+resourceGenerators in Test += tldsTask.taskValue
 
 
 // merge strategies for apache tika fat jar, please check
