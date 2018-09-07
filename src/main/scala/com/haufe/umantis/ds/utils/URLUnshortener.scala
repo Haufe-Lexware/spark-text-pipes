@@ -216,6 +216,4 @@ object URLUnshortener {
       URLUnshortener.DEFAULT_CACHE_SIZE
     )
   }
-
-
-  res.mergeArrayColumns("urls_detected", Seq("job__detected", "text__detected")).withColumn("urls", explode($"urls_detected")).select("user_id", "urls").show(100, 100)
+}
