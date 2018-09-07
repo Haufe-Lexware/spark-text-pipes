@@ -22,7 +22,10 @@ class URLDetector(override val uid: String)
         .detect
         .asScala
         .map(_.normalize)
-        .filter(url => URLDetector.tlds.contains(url.getHost.split('.').takeRight(1)(0)))
+        .filter(url => {
+          val host = url.getHost
+          host != null && URLDetector.tlds.contains(host.split('.').takeRight(1)(0))
+        })
         .map(_.toString)
       if (urls.nonEmpty) urls else Seq()
     }
