@@ -80,6 +80,8 @@ extends TopicSource(conf)
 
       sink =
         try {
+          println("using memory sink")
+
           val s = getSource("earliest")//startingOffset)
             .writeStream
             .outputMode("complete")
