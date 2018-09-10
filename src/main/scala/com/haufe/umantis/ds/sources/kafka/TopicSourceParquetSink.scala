@@ -82,9 +82,9 @@ extends TopicSource(conf)
         try {
           val s = getSource("earliest")//startingOffset)
             .writeStream
-            .outputMode("append")
-            .option("checkpointLocation", conf.filePathCheckpoint)
-            .format("parquet")
+            .outputMode("complete")
+//            .option("checkpointLocation", conf.filePathCheckpoint)
+            .format("memory")
             .trigger(conf.kafkaTopic.trigger)
             .start(conf.filePath)
 

@@ -223,7 +223,6 @@ class DsPipeline(input: Seq[DsPipelineInput[Colnames]]) {
   def companion[T <: AnyVal with DsPipelineCommon]: T = DsPipeline.asInstanceOf[T]
 
   def stages: Array[Transformer] = {
-    println("creating stages in DsPipeline")
     input.flatMap(i =>
       i.stages.flatMap(stageName =>
         i.cols.map(col =>
