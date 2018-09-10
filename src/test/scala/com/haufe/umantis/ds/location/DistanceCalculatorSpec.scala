@@ -45,7 +45,8 @@ class DistanceCalculatorSpec extends SparkSpec {
      minDistance should ( be  < 100.0f )
   }
 
-  "distance calculator" should "handle null" in {
+  // change ignore to "it" (without quotes)
+  ignore should "handle null" in {
     // TODO
     val df = Seq((
       Seq(
