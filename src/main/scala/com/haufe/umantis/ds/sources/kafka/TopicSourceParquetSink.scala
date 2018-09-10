@@ -19,6 +19,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
+import org.apache.spark.sql.streaming.StreamingQueryException
 import org.apache.spark.sql.{AnalysisException, DataFrame}
 
 import scala.collection.mutable
@@ -107,8 +108,12 @@ extends TopicSource(conf)
 
       sink match {
         case Some(s) =>
-          s.stop()
-          s.awaitTermination()
+          try {
+            s.stop()
+            s.awaitTermination()
+          } catch {
+            case _: StreamingQueryException =>
+          }
 
           sink = None
           dataFrame = None
