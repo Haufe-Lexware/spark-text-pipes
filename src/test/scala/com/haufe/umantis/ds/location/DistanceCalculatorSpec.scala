@@ -16,7 +16,8 @@
 package com.haufe.umantis.ds.location
 
 import com.haufe.umantis.ds.tests.SparkSpec
-import org.scalatest.Matchers._
+import org.scalatest._
+import Matchers._
 
 class DistanceCalculatorSpec extends SparkSpec {
   import currentSparkSession.implicits._
@@ -42,5 +43,25 @@ class DistanceCalculatorSpec extends SparkSpec {
        .head
        .getFloat(0)
      minDistance should ( be  < 100.0f )
+  }
+
+  "distance calculator" should "handle null" in {
+    // TODO
+    val df = Seq((
+      Seq(
+        GeoCoordinates(48.2208286, 16.2399752), // Vienna (53km)
+        GeoCoordinates(49.2022097, 16.4378759)  // Brno (120km)
+      ),
+      null
+    )).toDF("base","col1")
+
+    val minDistance = distanceCalculator
+      .transform(df)
+      .select("minDist")
+      .collect()
+      .head
+      .isNullAt(0)
+    minDistance shouldEqual true
+
   }
 }

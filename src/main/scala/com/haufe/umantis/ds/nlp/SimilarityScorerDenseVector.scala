@@ -45,16 +45,20 @@ class SimilarityScorerDenseVector(override val uid: String)
 
     val calculateSimilarity = udf {
       (v0: DenseVector, v1: DenseVector) => {
-        val size = v0.size
-        val base = v0.values
-        val vector = v1.values
-        var i = 0
-        var dotProduct = 0.0
-        while (i < size) {
-          dotProduct += base(i) * vector(i)
-          i += 1
+        if (v0 == null || v1 == null) {
+          None
+        } else {
+          val size = v0.size
+          val base = v0.values
+          val vector = v1.values
+          var i = 0
+          var dotProduct = 0.0
+          while (i < size) {
+            dotProduct += base(i) * vector(i)
+            i += 1
+          }
+          Some(dotProduct.toFloat)
         }
-        dotProduct.toFloat
       }
     }
 
@@ -69,7 +73,7 @@ class SimilarityScorerDenseVector(override val uid: String)
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
     val outputFields = schema.fields :+
-      StructField($(outputCol), schemaFor[Float].dataType, nullable = false)
+      StructField($(outputCol), schemaFor[Float].dataType, nullable = true)
     StructType(outputFields)
   }
 
