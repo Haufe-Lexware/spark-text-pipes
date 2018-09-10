@@ -22,7 +22,6 @@ import com.haufe.umantis.ds.nlp.stanford.corenlp._
 import com.haufe.umantis.ds.spark.{NormalizedBagOfWords, UnaryUDFTransformer}
 import com.haufe.umantis.ds.utils.{ConfigGetter, URLDetector, URLExpander, URLValidator}
 import com.haufe.umantis.ds.wmd.{EuclideanDistanceNormalized, WordMoverDistanceCalculator}
-import com.haufe.umantis.ds.utils.EmojiRemoverTransliterator
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.feature.RegexTokenizer
 
@@ -223,14 +222,18 @@ class DsPipeline(input: Seq[DsPipelineInput[Colnames]]) {
 
   def companion[T <: AnyVal with DsPipelineCommon]: T = DsPipeline.asInstanceOf[T]
 
-  val stages: Array[Transformer] =
+  def stages: Array[Transformer] = {
+    println("creating stages in DsPipeline")
     input.flatMap(i =>
       i.stages.flatMap(stageName =>
         i.cols.map(col =>
-          companion.stagesOptions(stageName).asInstanceOf[Colnames => Transformer](col)))
+          companion.stagesOptions(stageName).asInstanceOf[Colnames => Transformer](col)
+        )
+      )
     ).toArray
+  }
 
-  val pipeline: PipelineExtended = new PipelineExtended().setStages(stages)
+  def pipeline: PipelineExtended = new PipelineExtended().setStages(stages)
 
   def pipelineAddedFields: Array[String] =
     stages.map(s => {
@@ -240,8 +243,6 @@ class DsPipeline(input: Seq[DsPipelineInput[Colnames]]) {
 }
 
 trait DsPipelineCommon extends ConfigGetter {
-
-  def apply(input: DsPipelineInput[Colnames]): DsPipeline = new DsPipeline(Seq(input))
 
   lazy val stopWordsMap: Map[String, Set[String]] =
     MultiLanguageStopWordsRemover
@@ -391,7 +392,7 @@ trait DsPipelineCommon extends ConfigGetter {
       .setInputCol(c.urls)
       .setOutputCol(c.expandedURLs)
 
-  val stagesOptions: Map[String, _ => Transformer] =
+  def stagesOptions: Map[String, _ => Transformer] =
     Map[String, _ => Transformer](
       Stg.TextCleaner -> getTextCleaner _,
       Stg.TextCleanerWithoutAcronyms -> getTextCleanerWithoutAcronyms _,
@@ -422,4 +423,6 @@ trait DsPipelineCommon extends ConfigGetter {
     )
 }
 
-object DsPipeline extends DsPipelineCommon
+object DsPipeline extends DsPipelineCommon {
+  def apply(input: DsPipelineInput[Colnames]): DsPipeline = new DsPipeline(Seq(input))
+}
