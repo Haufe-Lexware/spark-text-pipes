@@ -19,7 +19,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
 
 import scala.util.Try
 
@@ -180,6 +180,25 @@ trait DataFrameHelpers extends SparkSessionWrapper {
 
       df.sparkSession.createDataFrame(result, StructType(outputFields))
     }
+
+    /**
+      * Set nullable property of column.
+      * @param cn is the column name to change
+      * @param nullable is the flag to set, such that the column is  either nullable or not
+      */
+    def setNullableStateOfColumn(cn: String, nullable: Boolean) : DataFrame = {
+
+      // get schema
+      val schema = df.schema
+      // modify [[StructField] with name `cn`
+      val newSchema = StructType(schema.map {
+        case StructField( c, t, _, m) if c.equals(cn) => StructField( c, t, nullable = nullable, m)
+        case y: StructField => y
+      })
+      // apply new schema
+      df.sqlContext.createDataFrame( df.rdd, newSchema )
+    }
+
   }
 
   def nullableCol(parentCol: Column, c: Column): Column = {

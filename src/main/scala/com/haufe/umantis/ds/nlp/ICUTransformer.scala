@@ -53,7 +53,7 @@ class ICUTransformer(override val uid: String) extends Transformer
 
   def this() = this(Identifiable.randomUID("ICUTransformer"))
 
-  setDefault(transliteratorID, "Lower; Any-Latin; Latin-ASCII")
+  setDefault(transliteratorID, "Any-Latin; Latin-ASCII")
 
   val transliteratorsB: Broadcast[ICUTransliterators.type] =
     SparkSession.builder().getOrCreate().sparkContext.broadcast(ICUTransliterators)

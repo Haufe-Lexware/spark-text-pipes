@@ -372,7 +372,7 @@ trait DsPipelineCommon extends ConfigGetter {
 
   def getTextToLatin(c: ColnamesURL): ICUTransformer =
     new ICUTransformer()
-      .setTransliteratorID("Emoji-Remover; Lower; Any-Latin; Latin-ASCII")
+      .setTransliteratorID("Emoji-Remover; Any-Latin; Latin-ASCII")
       .setInputCol(c.text)
       .setOutputCol(c.textAllLatin)
 
