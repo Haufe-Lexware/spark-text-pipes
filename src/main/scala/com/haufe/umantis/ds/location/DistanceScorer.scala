@@ -47,7 +47,13 @@ class DistanceScorer(override val uid: String)
     transformSchema(dataset.schema, logging = true)
 
     val calculateDistance = udf{
-      (distance: Float, distanceFactor: Float) => scoreDistance(distance, distanceFactor)
+      (distance: Float, distanceFactor: Float) => {
+        if (distance == null) {
+          None
+        } else {
+          Some(scoreDistance(distance, distanceFactor))
+        }
+      }
     }
 
     dataset.withColumn($(outputCol), calculateDistance(col($(inputCol)), col($(distanceFactorCol))))
@@ -61,7 +67,7 @@ class DistanceScorer(override val uid: String)
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
     }
     val outputFields = schema.fields :+
-      StructField($(outputCol), schemaFor[Float].dataType, nullable = false)
+      StructField($(outputCol), schemaFor[Float].dataType, nullable = true)
     StructType(outputFields)
   }
 

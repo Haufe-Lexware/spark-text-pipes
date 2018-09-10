@@ -44,18 +44,26 @@ class LinearWeigher(override val uid: String)
     transformSchema(dataset.schema, logging = true)
 
     val linearCombination = udf {
-      (linearWeights:Row, values: Seq[Float]) => {
-        (values, linearWeights.getSeq[Float](1)).zipped.map(_ * _).sum / linearWeights.getFloat(0)
+      (linearWeights: Seq[Float], values: Seq[Any]) => {
+        val (valueSum, weightSum) = (values, linearWeights).zipped
+          .foldLeft((0.0f, 0.0f)){
+          case ((valueSum, weightSum), (value:Float, weights)) =>
+            (valueSum + value * weights, weightSum + weights)
+          case ((valueSum, weightSum), (_, weights)) =>
+            (valueSum, weightSum)
+        }
+
+        valueSum / weightSum
       }
     }
-    val inputColumns = array($(inputCols).map(col):_*)
+    val inputColumns = array($(inputCols).map(col): _*)
     dataset.withColumn($(outputCol), linearCombination(col($(linearWeightsCol)), inputColumns))
   }
 
   override def transformSchema(schema: StructType): StructType = {
 
-    $(inputCols).foreach(validateColumnSchema(_,schemaFor[Float].dataType,schema))
-    validateColumnSchema($(linearWeightsCol), schemaFor[(Float,Array[Float])].dataType, schema)
+    $(inputCols).foreach(validateColumnSchema(_, schemaFor[Float].dataType, schema))
+    validateColumnSchema($(linearWeightsCol), schemaFor[Array[Float]].dataType, schema)
 
     if (schema.fieldNames.contains($(outputCol))) {
       throw new IllegalArgumentException(s"Output column ${$(outputCol)} already exists.")
