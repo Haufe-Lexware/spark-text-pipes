@@ -15,7 +15,6 @@
 
 package com.haufe.umantis.ds.location
 
-import com.haufe.umantis.ds.utils.NormalizeSupport
 import com.vitorsvieira.iso.ISOCountry
 
 // Every case class extends Product and Serializable so we need it to execute getDistance
@@ -28,7 +27,7 @@ case class GeoCoordinates(latitude: Double, longitude: Double) extends BaseCoord
 case class GeoLocation(latitude: Double, longitude: Double, name: String) extends BaseCoordinates
 
 
-trait Location extends NormalizeSupport {
+trait Location {
   def getCoordinates(place: String,
                      countryCode: Option[String] = None): GeoCoordinates = {
     if (place == null)

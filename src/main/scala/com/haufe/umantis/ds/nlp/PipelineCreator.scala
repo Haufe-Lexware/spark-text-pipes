@@ -20,7 +20,7 @@ import com.haufe.umantis.ds.location.{CoordinatesFetcher, DistanceCalculator, Di
 import com.haufe.umantis.ds.nlp.stanford.corenlp.StanfordPipelines._
 import com.haufe.umantis.ds.nlp.stanford.corenlp._
 import com.haufe.umantis.ds.spark.{NormalizedBagOfWords, UnaryUDFTransformer}
-import com.haufe.umantis.ds.utils.{ConfigGetter, URLExpander, URLValidator}
+import com.haufe.umantis.ds.utils.{ConfigGetter, URLDetector, URLExpander, URLValidator}
 import com.haufe.umantis.ds.wmd.{EuclideanDistanceNormalized, WordMoverDistanceCalculator}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.feature.RegexTokenizer
@@ -76,7 +76,11 @@ object ColnamesTextSimilarity {
 }
 
 class ColnamesURL(val colName: String) extends Colnames {
-  def urls: String = colName
+  def text: String = colName
+
+  def textAllLatin: String = s"${colName}__allLatin"
+
+  def urls: String = s"${colName}__urls"
 
   def validURLs: String = s"${colName}__valid"
 
@@ -142,7 +146,7 @@ object ColnamesAggregated {
     new ColnamesAggregated(outputCol, inputCols)
 }
 
-object Stg {
+trait Stg {
   val TextCleaner: String = "TextCleaner"
   val TextCleanerWithoutAcronyms: String = "TextCleanerWithoutAcronyms"
   val LanguageDetector: String = "LanguageDetector"
@@ -159,15 +163,19 @@ object Stg {
   val DistanceCalculator: String = "DistanceCalculator"
   val DistanceScorer: String = "DistanceScorer"
 
-  val URLValidator: String = "URLValidator"
-  val URLExpander: String = "URLExpander"
-
   val Max: String = "ColumnAggregatorMax"
   val Min: String = "ColumnAggregatorMin"
   val Sum: String = "ColumnAggregatorSum"
   val Mean: String = "ColumnAggregatorMean"
   val LinearWeigher: String = "LinearWeigher"
+
+  val URLAllLatin: String = "URLAllLatin"
+  val URLDetector: String = "URLDetector"
+  val URLValidator: String = "URLValidator"
+  val URLExpander: String = "URLExpander"
 }
+
+object Stg extends Stg
 
 object StandardPipeline {
   val TextDataPreprocessing: Seq[String] =
@@ -191,7 +199,9 @@ object StandardPipeline {
   )
 
   val URLProcessing: Seq[String] = Seq(
-    Stg.URLValidator,
+    Stg.URLAllLatin,
+    Stg.URLDetector,
+//    Stg.URLValidator,
     Stg.URLExpander
   )
 }
@@ -210,14 +220,20 @@ object DsPipelineInput {
 
 class DsPipeline(input: Seq[DsPipelineInput[Colnames]]) {
 
-  val stages: Array[Transformer] =
+  def companion[T <: AnyVal with DsPipelineCommon]: T = DsPipeline.asInstanceOf[T]
+
+  def stages: Array[Transformer] = {
+    println("creating stages in DsPipeline")
     input.flatMap(i =>
       i.stages.flatMap(stageName =>
         i.cols.map(col =>
-          DsPipeline.stagesOptions(stageName).asInstanceOf[Colnames => Transformer](col)))
+          companion.stagesOptions(stageName).asInstanceOf[Colnames => Transformer](col)
+        )
+      )
     ).toArray
+  }
 
-  val pipeline: PipelineExtended = new PipelineExtended().setStages(stages)
+  def pipeline: PipelineExtended = new PipelineExtended().setStages(stages)
 
   def pipelineAddedFields: Array[String] =
     stages.map(s => {
@@ -226,19 +242,17 @@ class DsPipeline(input: Seq[DsPipelineInput[Colnames]]) {
     })
 }
 
-object DsPipeline extends ConfigGetter {
-
-  def apply(input: DsPipelineInput[Colnames]): DsPipeline = new DsPipeline(Seq(input))
+trait DsPipelineCommon extends ConfigGetter {
 
   lazy val stopWordsMap: Map[String, Set[String]] =
     MultiLanguageStopWordsRemover
       .loadDefaultStopWordsMap(LanguagesConfiguration.supportedLanguages)
 
-  def getNormalizedBagOfWordsTransformer(c: ColnamesText): UnaryUDFTransformer
-    [Seq[String], Seq[(String, Int)]] =
-    NormalizedBagOfWords()
-      .setInputCol(c.tokens)
-      .setOutputCol(c.nBOW)
+  def getNormalizedBagOfWordsTransformer(c: ColnamesText):
+    UnaryUDFTransformer[Seq[String], Seq[(String, Int)]] =
+      NormalizedBagOfWords()
+        .setInputCol(c.tokens)
+        .setOutputCol(c.nBOW)
 
   def getTextCleaner(c: ColnamesText): TextCleaner =
     new TextCleaner()
@@ -266,7 +280,7 @@ object DsPipeline extends ConfigGetter {
 
   def getStopWordsRemover(c: ColnamesText): MultiLanguageStopWordsRemover =
     new MultiLanguageStopWordsRemover()
-      .setStopWordsMap(DsPipeline.stopWordsMap)
+      .setStopWordsMap(stopWordsMap)
       .setDefaultLanguage("en")
       .setLanguageCol(c.language)
       .setInputCol(c.tokens)
@@ -280,16 +294,6 @@ object DsPipeline extends ConfigGetter {
       .setBaseLanguageCol(c.baseText.language)
       .setBaseDocumentCol(c.baseText.nBOW)
       .setOutputCol(c.similarity)
-
-  def getURLValidator(c: ColnamesURL): URLValidator =
-    new URLValidator()
-      .setInputCol(c.urls)
-      .setOutputCol(c.validURLs)
-
-  def getURLExpander(c: ColnamesURL): URLExpander =
-    new URLExpander()
-      .setInputCol(c.validURLs)
-      .setOutputCol(c.expandedURLs)
 
   def getStanfordCoreNLP(c: ColnamesText): StanfordCoreNLPTransformer =
     StanfordCoreNLPTransformer(StanfordPipelines(
@@ -367,7 +371,28 @@ object DsPipeline extends ConfigGetter {
   def getMean[T <: Colnames](c: ColnamesAggregated[T]): ColumnsAggregator =
     getColumnAggregator(c, ColumnsAggregator.mean)
 
-  val stagesOptions: Map[String, _ => Transformer] =
+  def getTextToLatin(c: ColnamesURL): ICUTransformer =
+    new ICUTransformer()
+      .setTransliteratorID("Emoji-Remover; Any-Latin; Latin-ASCII")
+      .setInputCol(c.text)
+      .setOutputCol(c.textAllLatin)
+
+  def getURLDetector(c: ColnamesURL): URLDetector =
+    new URLDetector()
+      .setInputCol(c.textAllLatin)
+      .setOutputCol(c.urls)
+
+  def getURLValidator(c: ColnamesURL): URLValidator =
+    new URLValidator()
+      .setInputCol(c.urls)
+      .setOutputCol(c.validURLs)
+
+  def getURLExpander(c: ColnamesURL): URLExpander =
+    new URLExpander()
+      .setInputCol(c.urls)
+      .setOutputCol(c.expandedURLs)
+
+  def stagesOptions: Map[String, _ => Transformer] =
     Map[String, _ => Transformer](
       Stg.TextCleaner -> getTextCleaner _,
       Stg.TextCleanerWithoutAcronyms -> getTextCleanerWithoutAcronyms _,
@@ -385,6 +410,8 @@ object DsPipeline extends ConfigGetter {
       Stg.DistanceCalculator -> getDistanceCalculator _,
       Stg.DistanceScorer -> getDistanceScorer _,
 
+      Stg.URLAllLatin -> getTextToLatin _,
+      Stg.URLDetector -> getURLDetector _,
       Stg.URLValidator -> getURLValidator _,
       Stg.URLExpander -> getURLExpander _,
 
@@ -394,4 +421,8 @@ object DsPipeline extends ConfigGetter {
       Stg.Mean -> getMean _,
       Stg.LinearWeigher -> getLinearWeigher _
     )
+}
+
+object DsPipeline extends DsPipelineCommon {
+  def apply(input: DsPipelineInput[Colnames]): DsPipeline = new DsPipeline(Seq(input))
 }

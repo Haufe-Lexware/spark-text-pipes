@@ -15,86 +15,145 @@
 
 package com.haufe.umantis.ds.utils
 
-import java.io.IOException
-import java.net.{HttpURLConnection, Proxy, URL}
-
-import com.google.common.io.Closeables
 import com.twitter.util.SynchronizedLruMap
 import org.slf4j.LoggerFactory
 
 import scala.annotation.tailrec
+import dispatch._
+import Defaults._
+import com.haufe.umantis.ds.utils.BackendType.BackendType
 
+
+object BackendType extends Enumeration {
+  type BackendType = Value
+  val Sync, Async = Value
+}
+
+
+case class CheckedURL(
+                       origUrl: String,
+                       finalUrl: String,
+                       connects: Boolean,
+                       numRedirects: Int
+                     )
+
+abstract class HttpBackend extends Serializable {
+  def doExpandURL(address: CheckedURL): Option[String]
+}
 
 /**
   * @param connectTimeout HTTP connection timeout, in ms
   * @param readTimeout    HTTP read timeout, in ms
+  */
+class AsyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends HttpBackend {
+
+  def doExpandURL(address: CheckedURL): Option[String] = {
+
+    val http = dispatch.Http.withConfiguration(_
+      .setConnectTimeout(connectTimeout)
+      .setReadTimeout(readTimeout)
+    )
+
+    val future = http(url(address.finalUrl))
+    val response = future()
+
+    // response.getHeaders.get(.) returns null if "Location" not found
+    Option(response.getHeaders.get("Location"))
+  }
+
+}
+
+/**
+  * @param connectTimeout HTTP connection timeout, in ms
+  * @param readTimeout    HTTP read timeout, in ms
+  */
+class SyncHttpBackend(val connectTimeout: Int, val readTimeout: Int) extends HttpBackend {
+
+  def doExpandURL(address: CheckedURL): Option[String] = {
+    val http = scalaj.http.Http
+    val response = http(address.finalUrl)
+      .timeout(connTimeoutMs = connectTimeout, readTimeoutMs = readTimeout)
+      .asString
+    response.location
+  }
+}
+
+/**
+  * @param backend:       The backend to use
+  * @param connectTimeout HTTP connection timeout, in ms
+  * @param readTimeout    HTTP read timeout, in ms
   * @param cacheSize      Number of resolved URLs to maintain in cache
   */
-class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSize: Int)
+class URLUnshortener(
+                      val backend: BackendType,
+                      val connectTimeout: Int,
+                      val readTimeout: Int,
+                      val cacheSize: Int
+                    )
   extends Serializable {
 
-  @transient lazy val cache = new SynchronizedLruMap[String, URL](cacheSize)
+  @transient lazy val cache = new SynchronizedLruMap[String, CheckedURL](cacheSize)
 
   /**
-    * Expand the given short {@link URL}
+    * Expand the given short URL
     *
     * @param address The URL
-    * @return The unshortened URL
+    * @param httpBackend    The HttpBackend class to use
+    * @return A CheckedURL case class with info about finalURL, connection, and number of redirects
     */
   @tailrec
-  final def expand(address: URL): URL = {
+  final def doExpand[T <: HttpBackend](address: CheckedURL, httpBackend: T): CheckedURL = {
 
-    cache.get(address.toString) match {
+    cache.get(address.origUrl) match {
       case Some(url) => url
 
       case _ =>
-        var connection: HttpURLConnection = null
-        //Connect & check for the location field
-        val expandedURL: Option[URL] = try {
-          connection = address.openConnection(Proxy.NO_PROXY).asInstanceOf[HttpURLConnection]
-          connection.setConnectTimeout(connectTimeout)
-          connection.setInstanceFollowRedirects(false)
-          connection.setReadTimeout(readTimeout)
-          connection.connect()
-          val expandedURL: String = connection.getHeaderField("Location")
-          if (expandedURL != null) {
-            Some(new URL(expandedURL))
-          } else {
-            None
-          }
-        } catch {
-          case e: Exception =>
-            URLUnshortener.LOGGER
-              .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
-            None
-        } finally {
+        val expandedURL: Either[CheckedURL, Option[String]] =
           try {
-            if (connection != null)
-              Closeables.close(connection.getInputStream, false)
+            Right(httpBackend.doExpandURL(address))
           } catch {
-            case e: IOException =>
-              URLUnshortener.LOGGER.warn("Unable to close connection stream", e.getMessage: Any)
+            case e: Exception =>
+              URLUnshortener.LOGGER
+                .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
+              Left(
+                CheckedURL(address.origUrl, address.finalUrl, connects=false, address.numRedirects)
+              )
           }
-        }
 
         expandedURL match {
-          case None => address
-          case Some(url) =>
-            cache.put(address.toString, url)
-            expand(url)
+          case Left(value) => value
+
+          case Right(value) => value match {
+            case None =>
+              val checkedURL =
+                CheckedURL(address.origUrl, address.finalUrl, connects = true, address.numRedirects)
+              cache.put(address.origUrl, checkedURL)
+              checkedURL
+
+            case Some(newUrl) =>
+              if (address.finalUrl == newUrl || address.numRedirects > 10) {
+                // we avoid loops (e.g. infinite redirects because we're not holding a session)
+                CheckedURL(address.origUrl, newUrl, connects = true, address.numRedirects)
+              } else {
+                doExpand(
+                  CheckedURL(address.origUrl, newUrl, connects = true, address.numRedirects + 1),
+                  httpBackend
+                )
+              }
+          }
         }
     }
   }
 
-  /**
-    * Expand the given short URL in String format
-    *
-    * @param address The URL
-    * @return The unshortened URL
-    */
-  def expand(address: String): String = {
-    expand(new URL(address)).toString
+  def expand(address: String): CheckedURL = {
+    val httpBackend = backend match {
+      case BackendType.Sync => new SyncHttpBackend(connectTimeout, readTimeout)
+      case BackendType.Async => new AsyncHttpBackend(connectTimeout, readTimeout)
+    }
+
+    doExpand(CheckedURL(address, address, connects=false, numRedirects = 0), httpBackend)
   }
+
 
   /**
     * Returns true if the URL expands
@@ -103,7 +162,8 @@ class URLUnshortener(val connectTimeout: Int, val readTimeout: Int, val cacheSiz
     * @return If the URL expands
     */
   def doesExpand(address: String): Boolean = {
-    address != expand(address)
+    val checkedURL = expand(address)
+    checkedURL.numRedirects > 0
   }
 }
 
@@ -117,9 +177,11 @@ object URLUnshortener {
   val DEFAULT_CONNECT_TIMEOUT = 3000
   val DEFAULT_READ_TIMEOUT = 3000
   val DEFAULT_CACHE_SIZE = 100000
+  val DEFAULT_BACKEND: BackendType = BackendType.Sync
 
   def apply(): URLUnshortener = {
     new URLUnshortener(
+      URLUnshortener.DEFAULT_BACKEND,
       URLUnshortener.DEFAULT_CONNECT_TIMEOUT,
       URLUnshortener.DEFAULT_READ_TIMEOUT,
       URLUnshortener.DEFAULT_CACHE_SIZE

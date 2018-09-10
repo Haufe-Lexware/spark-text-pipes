@@ -15,6 +15,10 @@
 
 package com.haufe.umantis.ds.utils
 
+import com.haufe.umantis.ds.nlp.Substitution
+
+import com.ibm.icu.text.Transliterator
+
 /**
   * Performs standard Java/unicode normalization on the trimmed and lowercased form
   * of the input String and then adds a few extra tricks for dealing with special
@@ -35,16 +39,76 @@ package com.haufe.umantis.ds.utils
 trait NormalizeSupport extends Serializable {
   import java.text.Normalizer.{ normalize ⇒ jnormalize, _ }
 
-  def normalize(in: String): String = {
-    val cleaned = in.trim.toLowerCase
-    val normalized = jnormalize(cleaned, Form.NFD).replaceAll("[\\p{InCombiningDiacriticalMarks}\\p{IsM}\\p{IsLm}\\p{IsSk}]+", "")
+  def replace(in: String, sub: Substitution): String =
+    sub.pattern.replaceAllIn(in, sub.repl)
 
-    normalized.replaceAll("'s", "")
-      .replaceAll("ß", "ss")
-      .replaceAll("ø", "o")
-      .replaceAll("[^a-zA-Z0-9-]+", "-")
-      .replaceAll("-+", "-")
-      .stripSuffix("-")
+  def replace(in: String, substitutions: Array[Substitution]): String = {
+    substitutions.foldLeft(in){
+      case (result, substitution) =>
+        replace(result, substitution)
+    }
+  }
+
+  def cleanUp(in: String): String = {
+    jnormalize(in.trim.toLowerCase, Form.NFKD)
+  }
+
+  @transient lazy val anyToLatinTrans: Transliterator =
+    Transliterator.getInstance("Any-Latin")
+
+  @transient lazy val latinToAsciiTrans: Transliterator =
+    Transliterator.getInstance("Latin-ASCII")
+
+
+  implicit class StringNormalizerHelper(in: String) {
+
+    val InCombiningDiacriticalMarks =
+      Substitution("\\p{InCombiningDiacriticalMarks}+".r, "")
+
+    val InCombiningDiacriticalMarksPlus =
+      Substitution("[\\p{InCombiningDiacriticalMarks}\\p{IsM}\\p{IsLm}\\p{IsSk}]+".r, "")
+
+    val allBaseReplacements = Array(
+      InCombiningDiacriticalMarksPlus,
+      Substitution("ß".r, "ss"),
+      Substitution("ø".r, "o")
+    )
+
+    val allReplacements: Array[Substitution] = {
+      allBaseReplacements ++
+        Seq(
+          Substitution("'s".r, ""),
+          Substitution("[^a-zA-Z0-9-]+".r, "-"),
+          Substitution("-+".r, "-")
+        )
+    }
+
+    def clean: String = cleanUp(in)
+
+    def normalize: String = replace(cleanUp(in), InCombiningDiacriticalMarks)
+
+    def normalizePlus: String = replace(cleanUp(in), InCombiningDiacriticalMarksPlus)
+
+    def normalizeAll: String = replace(cleanUp(in), allBaseReplacements)
+
+    def normalizeAlsoSigns: String = {
+      replace(cleanUp(in), allReplacements)
+        .stripSuffix("-")
+    }
+
+    val anyToLatin: String => String = anyToLatinTrans.transliterate
+    val latinToAscii: String => String = latinToAsciiTrans.transliterate
+    val anyToAscii: String = (anyToLatin andThen latinToAscii)(in)
+
+    def transliterate(conversionString: String): String = {
+      val trans = Transliterator.getInstance(conversionString)
+      trans.transliterate(in)
+    }
+
+    def getConversionIDs: List[String] = {
+      import scala.collection.JavaConversions._
+      Transliterator.getAvailableIDs.toList
+    }
   }
 }
 

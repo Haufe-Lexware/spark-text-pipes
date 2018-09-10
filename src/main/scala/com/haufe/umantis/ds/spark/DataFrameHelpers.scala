@@ -19,7 +19,7 @@ import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataType, StringType, StructType}
+import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
 
 import scala.util.Try
 
@@ -139,6 +139,66 @@ trait DataFrameHelpers extends SparkSessionWrapper {
     def withNestedColumn(newColName: String, newCol: Column): DataFrame = {
       DataFrameHelpers.addNestedColumn(df, newColName, newCol)
     }
+
+    /**
+      * Merge a sequence of Array (or other sequence) columns into one
+      *
+      * @param outputCol The output column name
+      * @param inputCols The sequence of the columns to merge
+      * @return A new DataFrame
+      */
+    def mergeArrayColumns(outputCol: String, inputCols: Seq[String]): DataFrame = {
+
+      import org.apache.spark.sql.types.{StructField, StructType}
+
+      // let's gather all the dataType(s) of the cols in input
+      // we need to check that the datatype is the same for all columns.
+      // If they are, we keep the dataType for the output column
+      val outputColDatatype = {
+        val colsDataTypes = df.schema.filter(x => inputCols.contains(x.name)).map(_.dataType)
+        val colsDataTypesSet = colsDataTypes.toSet
+        if (colsDataTypesSet.size != 1) {
+          throw new IllegalArgumentException(
+            s"All columns dataType(s) must be the same but they are ${colsDataTypes.mkString("; ")}")
+        }
+        colsDataTypesSet.head
+      }
+
+      val result = df.rdd.mapPartitions(iter => {
+
+        iter.map{r => {
+          val res = inputCols.flatMap(c => {
+            r.getAs[Seq[Any]](c)
+          })
+
+          Row.fromSeq(r.toSeq :+ res)
+        }}
+      })
+
+      val outputFields = df.schema.fields :+
+        StructField(outputCol, outputColDatatype, nullable = true)
+
+      df.sparkSession.createDataFrame(result, StructType(outputFields))
+    }
+
+    /**
+      * Set nullable property of column.
+      * @param cn is the column name to change
+      * @param nullable is the flag to set, such that the column is  either nullable or not
+      */
+    def setNullableStateOfColumn(cn: String, nullable: Boolean) : DataFrame = {
+
+      // get schema
+      val schema = df.schema
+      // modify [[StructField] with name `cn`
+      val newSchema = StructType(schema.map {
+        case StructField( c, t, _, m) if c.equals(cn) => StructField( c, t, nullable = nullable, m)
+        case y: StructField => y
+      })
+      // apply new schema
+      df.sqlContext.createDataFrame( df.rdd, newSchema )
+    }
+
   }
 
   def nullableCol(parentCol: Column, c: Column): Column = {

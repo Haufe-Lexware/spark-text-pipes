@@ -8,7 +8,7 @@ import org.apache.spark.sql.DataFrame
 
 class URLProcessingSpec extends SparkSpec with URLProcessingSpecFixture with DataFrameHelpers {
 
-  "URLValidator and URLExpander" should "validate and expand URLs" in {
+  "URLProcessing" should "detect, validate and expand URLs" in {
 
     val pipeline = DsPipeline(DsPipelineInput(
       cols,
@@ -16,28 +16,33 @@ class URLProcessingSpec extends SparkSpec with URLProcessingSpecFixture with Dat
     )).pipeline
 
     val expandedDF = urls.transformWithPipeline(pipeline)
+//    expandedDF.show(10, 200)
+//    expectedExpandedUrls.show(10, 200)
 
     assertSmallDataFrameEquality(expandedDF, expectedExpandedUrls)
   }
 }
 
 
-trait URLProcessingSpecFixture extends SparkSessionWrapper {
+trait URLProcessingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
   val cols = ColnamesURL("urls")
 
   val urls: DataFrame = Seq(
-    (Seq("http://▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀aiLemi", "https://bit.ly/1dNVPAW", "http://www.google.com/"))
+    "http://▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀aiLemi https://bit.ly/1dNVPAW http://www.google.com/"
   )
-    .toDF(cols.urls)
+    .toDF(cols.text)
 
   val expectedExpandedUrls: DataFrame = Seq(
     (
-      (Seq("http://▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀aiLemi", "https://bit.ly/1dNVPAW", "http://www.google.com/")),
-      (Seq("https://bit.ly/1dNVPAW", "http://www.google.com/")),
-      (Seq("http://www.google.com/", "http://www.google.com/"))
+      "http://▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀aiLemi https://bit.ly/1dNVPAW http://www.google.com/",
+      "http://▀▄▀▄▀▄▀▄▀▄▀▄▀▄▀aiLemi https://bit.ly/1dNVPAW http://www.google.com/",
+      Seq("https://bit.ly/1dNVPAW", "http://www.google.com/"),
+      Seq(CheckedURL("https://bit.ly/1dNVPAW", "http://www.google.com/", true, 1),
+        CheckedURL("http://www.google.com/", "http://www.google.com/", true, 0))
     )
   )
-    .toDF(cols.urls, cols.validURLs, cols.expandedURLs)
+    .toDF(cols.text, cols.textAllLatin, cols.urls, cols.expandedURLs)
+    .setNullableStateOfColumn(cols.expandedURLs, false)
 }

@@ -153,6 +153,35 @@ libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
 // Cassandra
 libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.0-s_2.11"
 
+// icu4j
+// https://mvnrepository.com/artifact/com.ibm.icu/icu4j
+libraryDependencies += "com.ibm.icu" % "icu4j" % "62.1"
+
+// https://mvnrepository.com/artifact/com.linkedin.urls/url-detector
+libraryDependencies += "com.linkedin.urls" % "url-detector" % "0.1.17"
+
+libraryDependencies +=  "org.scalaj" %% "scalaj-http" % "2.4.1"
+
+// https://mvnrepository.com/artifact/com.vdurmont/emoji-java
+libraryDependencies += "com.vdurmont" % "emoji-java" % "4.0.0"
+
+// getting an always-fresh list of TLDs
+val tldsTask = Def.task {
+  println("Getting fresh list of TLDs...")
+  val file = (resourceManaged in Compile).value / "tld.list"
+  val contents = {
+    scala.io.Source.fromURL("http://data.iana.org/TLD/tlds-alpha-by-domain.txt")
+      .mkString
+      .split("\n").filterNot(_.startsWith("#"))
+      .map(_.toLowerCase)
+      .mkString("\n")
+  }
+  IO.write(file, contents)
+  Seq(file)
+}
+resourceGenerators in Compile += tldsTask.taskValue
+resourceGenerators in Test += tldsTask.taskValue
+
 
 // merge strategies for apache tika fat jar, please check
 // https://stackoverflow.com/questions/47100718/apache-tika-1-16-txtparser-failed-to-detect-character-encoding-in-sbt-build
@@ -169,4 +198,3 @@ Project.inConfig(Test)(baseAssemblySettings)
 assemblyJarName in (Test, assembly) := s"${name.value}-test-${version.value}.jar"
 
 fork in ThisBuild in Test:= false
-
