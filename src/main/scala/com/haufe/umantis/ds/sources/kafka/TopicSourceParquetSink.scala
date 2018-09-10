@@ -85,6 +85,7 @@ extends TopicSource(conf)
             .outputMode("complete")
 //            .option("checkpointLocation", conf.filePathCheckpoint)
             .format("memory")
+            .queryName(conf.kafkaTopic.topic)
             .trigger(conf.kafkaTopic.trigger)
             .start(conf.filePath)
 
@@ -194,7 +195,7 @@ extends TopicSource(conf)
       val fname = s"$dataRoot${conf.fileNameLeaf}.parquet"
 
       val diskDf = currentSparkSession
-        .sql(s"select * from parquet.`$fname`")
+        .sql(s"select * from ${conf.kafkaTopic.topic}") //parquet.`$fname`
         .toDF()
         .repartition(conf.parquetSink.numPartitions)
 
