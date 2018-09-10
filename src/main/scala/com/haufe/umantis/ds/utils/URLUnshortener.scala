@@ -38,36 +38,7 @@ case class CheckedURL(
                      )
 
 abstract class HttpBackend extends Serializable {
-
   def doExpandURL(address: CheckedURL): Option[String]
-
-//  import scala.concurrent._
-//  import scala.concurrent.duration._
-//
-//  def runWithTimeout[T](timeoutMs: Long)(f: => T) : Option[T] = {
-//    Await.result(Future(f), timeoutMs milliseconds).asInstanceOf[Option[T]]
-//  }
-//
-//  def runWithTimeout[T](timeoutMs: Long, default: T)(f: => T) : T = {
-//    runWithTimeout(timeoutMs)(f).getOrElse(default)
-//  }
-
-//  def expandURL(address: CheckedURL): Option[String] = doExpandURL(address)
-
-//  @tailrec
-//  final def expandURL(address: CheckedURL, nrTry: Int = 1): Option[String] = {
-//    val res = runWithTimeout(5000) {doExpandURL(address)}
-//    res match {
-//      case Some(optStr) => optStr
-//      case None =>
-//        if (nrTry > 5) {
-//          println(s"timeout in http backend: ${address.origUrl}, $nrTry")
-//          None
-//        }
-//        else
-//          expandURL(address, nrTry + 1)
-//    }
-//  }
 }
 
 /**
