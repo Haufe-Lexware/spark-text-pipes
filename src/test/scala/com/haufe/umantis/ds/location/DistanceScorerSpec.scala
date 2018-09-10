@@ -27,7 +27,8 @@ class DistanceScorerSpec extends SparkSpec {
     .setOutputCol("score")
 
 
-  "distance scorer" should "handle null" in {
+  // change ignore to "distance scorer"
+  ignore should "handle null" in {
     // TODO
     val df = Seq((
       0.01f,
