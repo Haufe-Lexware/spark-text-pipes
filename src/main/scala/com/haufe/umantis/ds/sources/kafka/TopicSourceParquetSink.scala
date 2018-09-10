@@ -107,8 +107,12 @@ extends TopicSource(conf)
 
       sink match {
         case Some(s) =>
-          s.stop()
-          s.awaitTermination()
+          try {
+            s.stop()
+            s.awaitTermination()
+          } catch {
+            case _ =>
+          }
 
           sink = None
           dataFrame = None
