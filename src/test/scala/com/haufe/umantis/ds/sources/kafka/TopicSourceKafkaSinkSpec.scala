@@ -34,6 +34,8 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   var payloadSchema: StructType = _
   val double: DataFrame => DataFrame = {
     df =>
+      df.printSchema()
+
       val newDf = df
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "2 day")
