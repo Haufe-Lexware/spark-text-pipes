@@ -36,7 +36,11 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     df =>
       val newDf = df
         .withColumn("triple", $"num" * 3)
-        .groupBy($"type")
+        .withWatermark("timestamp", "2 day")
+        .groupBy(
+          window($"timestamp", "2 days", "1 day"),
+          $"type"
+        )
         .agg(avg($"triple").as("avgtriple"))
         .join(df, Seq("type"))
         .select("type", "num", "avgtriple")
