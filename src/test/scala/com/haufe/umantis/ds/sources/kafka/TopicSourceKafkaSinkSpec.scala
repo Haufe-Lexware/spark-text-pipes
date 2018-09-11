@@ -36,7 +36,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     df =>
       df.printSchema()
 
-      val newDf = df
+      val aggDf = df
         .as("aggDf")
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 minutes")
@@ -45,8 +45,11 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
+
+      val newDf = df
+        .as("df")
         .join(
-          df.as("df"),
+          aggDf.as("aggDf"),
           expr(
           """
             |df.type = aggDf.type AND
