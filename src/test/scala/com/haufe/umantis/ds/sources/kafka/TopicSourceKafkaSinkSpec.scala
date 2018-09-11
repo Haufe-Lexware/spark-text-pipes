@@ -48,6 +48,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
       val newDf = df
         .as("df")
+        .withWatermark("timestamp", "6 minutes")
         .join(
           aggDf.as("aggDf"),
           expr(
