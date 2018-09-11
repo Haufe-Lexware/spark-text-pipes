@@ -53,7 +53,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
             |df.timestamp >= window.start AND
             |df.timestamp <= window.end
           """.stripMargin))
-        .select("type", "num", "avgtriple")
+        .select("df.type", "num", "avgtriple")
 
       newDf.printSchema()
 //      newDf.show(10, 300)
