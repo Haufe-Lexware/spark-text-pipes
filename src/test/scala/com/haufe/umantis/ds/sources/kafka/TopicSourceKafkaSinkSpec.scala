@@ -83,6 +83,8 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     deleteTopic(inputTopic)
     deleteTopic(outputTopic)
 
+    sleep(5)
+
     // writing to kafka batch (no streaming)
     df
       .select(to_json(struct(df.columns.map(column):_*)).alias("value"))
@@ -95,7 +97,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(1)
+    sleep(200)
 
     // let's read back the output topic using batch
     val result = currentSparkSession
