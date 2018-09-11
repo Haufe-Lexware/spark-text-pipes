@@ -4,19 +4,19 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, StructType}
-import org.scalatest.FlatSpec
 
 import scala.util.Try
 
-class SSKafkaTest extends FlatSpec {
+object MyKafkaTest {
 
   val ss: SparkSession = SparkSession.builder().getOrCreate()
 
-  "SparkStreamming" should "work" in {
+  def test(mode: String): DataFrame = {
+
     implicit class DFHelper(df: DataFrame) {
       def expand(column: String): DataFrame = {
         val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
-        df.select(wantedColumns.map(col):_*)
+        df.select(wantedColumns.map(col): _*)
       }
 
       def byteArrayToString(column: String): DataFrame = {
@@ -50,7 +50,7 @@ class SSKafkaTest extends FlatSpec {
 
     // save data on kafka (batch)
     sourceDf
-      .select(to_json(struct(sourceDf.columns.map(column):_*)).alias("value"))
+      .select(to_json(struct(sourceDf.columns.map(column): _*)).alias("value"))
       .write
       .format("kafka")
       .option("kafka.bootstrap.servers", brokers)
@@ -83,7 +83,7 @@ class SSKafkaTest extends FlatSpec {
     // stream sink
     joinedDF
       .writeStream
-      .outputMode("append")
+      .outputMode(mode)
       .option("checkpointLocation", "/data/kafka/checkpoint")
       .option("topic", outputTopic)
       .format("kafka")
@@ -102,6 +102,8 @@ class SSKafkaTest extends FlatSpec {
       .byteArrayToString("value")
       .withColumn("value", from_json($"value", payloadSchema))
       .expand("value")
-      .show(false)
   }
+
+  test("append")
+  test("update")
 }
