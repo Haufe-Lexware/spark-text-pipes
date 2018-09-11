@@ -30,11 +30,14 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val kafkaConf: KafkaConf = KafkaConf(kafkaBroker, None)
   val inputTopicName = new GenericTopicName(inputTopic, "value", None)
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
+  var payloadSchema: StructType = _
   val double: DataFrame => DataFrame = {
     df =>
       val newDf = df
       .withColumn("double", $"num" * 2)
       .select("num", "double")
+
+      payloadSchema = newDf.schema
 
       newDf
       .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
@@ -75,12 +78,12 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     result.printSchema()
 
-    val jsonSchema = new StructType()
-      .add("num", IntegerType)
-      .add("double", IntegerType)
+//    val jsonSchema = new StructType()
+//      .add("num", IntegerType)
+//      .add("double", IntegerType)
 
     result
-      .withColumn("value", from_json($"value", jsonSchema))
+      .withColumn("value", from_json($"value", payloadSchema))
       .expand("value")
       .show(10, 500)
 
