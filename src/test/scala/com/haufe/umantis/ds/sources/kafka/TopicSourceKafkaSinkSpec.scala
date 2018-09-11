@@ -39,9 +39,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       val newDf = df
         .as("aggDf")
         .withColumn("triple", $"num" * 3)
-        .withWatermark("timestamp", "6 seconds")
+//        .withWatermark("timestamp", "6 seconds")
         .groupBy(
-          window($"timestamp", "6 seconds", "3 seconds"),
+//          window($"timestamp", "6 seconds", "3 seconds"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"), min($"type"))
