@@ -58,7 +58,10 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           """.stripMargin))
         .select("df.type", "num", "avgtriple")
 
+      println("newDf schema")
       newDf.printSchema()
+
+      println("aggDf schema")
       aggDf.printSchema()
 //      newDf.show(10, 300)
 
@@ -103,7 +106,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       .load()
       .byteArrayToString("value")
 
-    result.printSchema()
+//    result.printSchema()
 
     result
       .withColumn("value", from_json($"value", payloadSchema))
