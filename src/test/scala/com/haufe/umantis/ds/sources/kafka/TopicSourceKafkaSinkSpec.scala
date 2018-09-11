@@ -41,18 +41,24 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .as("aggDf")
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 minutes")
-//        .groupBy(
-//          window($"timestamp", "6 minutes"),// "3 minutes"),
-//          $"type"
-//        )
-//        .agg(avg($"triple").as("avgtriple"))
+        .groupBy(
+          window($"timestamp", "6 minutes"),// "3 minutes"),
+          $"num"
+        )
+        .agg(avg($"triple").as("avgtriple"))
 
       val newDf = df
         .as("df")
         .withWatermark("timestamp", "6 minutes")
         .join(
           aggDf.as("aggDf"),
-            expr("df.num = aggDf.num")
+            expr(
+            """
+              |df.num = aggDf.num AND
+              |df.timestamp >= window.start AND
+              |df.timestamp <= window.end
+            """.stripMargin)
+//            expr("df.num = aggDf.num")
 //          expr("df.type = aggDf.type")
 //          expr(
 //          """
