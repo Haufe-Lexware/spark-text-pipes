@@ -86,8 +86,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     result
       .withColumn("value", from_json($"value", jsonSchema))
       .expand("value")
-
-    result.show(10, 500)
+      .show(10, 500)
 
 //    deleteTopic(inputTopic)
 //    deleteTopic(outputTopic)
