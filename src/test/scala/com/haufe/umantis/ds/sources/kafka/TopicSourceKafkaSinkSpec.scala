@@ -40,34 +40,27 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       val aggDf = df
         .as("aggDf")
         .withColumn("triple", $"num" * 3)
-        .withWatermark("timestamp", "6 minutes")
+        .withWatermark("timestamp", "6 seconds")
         .groupBy(
-          window($"timestamp", "6 minutes"),// "3 minutes"),
-          $"num"
+          window($"timestamp", "6 seconds", "3 seconds"),
+          $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
 
       val newDf = df
         .as("df")
-        .withWatermark("timestamp", "6 minutes")
+//        .withWatermark("timestamp", "6 minutes")
         .join(
           aggDf.as("aggDf"),
-            expr(
-            """
-              |df.num = aggDf.num AND
-              |df.timestamp >= window.start AND
-              |df.timestamp <= window.end
-            """.stripMargin)
-//            expr("df.num = aggDf.num")
 //          expr("df.type = aggDf.type")
-//          expr(
-//          """
-//            |df.type = aggDf.type AND
-//            |df.timestamp >= window.start AND
-//            |df.timestamp <= window.end
-//          """.stripMargin)
+          expr(
+          """
+            |df.type = aggDf.type AND
+            |df.timestamp >= window.start AND
+            |df.timestamp <= window.end
+          """.stripMargin)
         )
-        .select("df.type", "df.num")//, "avgtriple")
+        .select("df.type", "num", "avgtriple")
 
       println("newDf schema")
       newDf.printSchema()
@@ -108,7 +101,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(20)
+    sleep(30)
 
     // let's read back the output topic using batch
     val result = currentSparkSession
