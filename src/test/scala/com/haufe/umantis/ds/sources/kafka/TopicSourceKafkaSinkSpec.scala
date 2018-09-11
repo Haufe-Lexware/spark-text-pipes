@@ -45,7 +45,6 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
-        .dropDuplicates("type")
 
       val newDf = df
         .as("df")
@@ -60,6 +59,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .select("df.type", "num", "avgtriple")
 
       newDf.printSchema()
+      aggDf.printSchema()
 //      newDf.show(10, 300)
 
       // used later in "from_json" so we don't have to manually specify the schema
@@ -92,7 +92,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(30)
+    sleep(1)
 
     // let's read back the output topic using batch
     val result = currentSparkSession
