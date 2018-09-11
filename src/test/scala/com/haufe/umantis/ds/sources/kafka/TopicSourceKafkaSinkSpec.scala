@@ -34,6 +34,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   var payloadSchema: StructType = _
   val transformationFunction: DataFrame => DataFrame = {
     df =>
+      println("df schema")
       df.printSchema()
 
       val aggDf = df
@@ -138,5 +139,5 @@ trait TopicSourceKafkaSinkSpecFixture extends SparkSessionWrapper {
     (5, "b")
   )
     .toDF("num", "type")
-    .withColumn("timestamp", lit(current_timestamp()))
+//    .withColumn("timestamp", lit(current_timestamp()))
 }
