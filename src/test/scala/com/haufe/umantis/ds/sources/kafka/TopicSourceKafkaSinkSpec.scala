@@ -76,11 +76,6 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     result.printSchema()
 
     val jsonSchema = new StructType()
-      .add("topic", StringType)
-      .add("partition", IntegerType)
-      .add("offset", IntegerType)
-      .add("timestamp", TimestampType)
-      .add("timestampType", IntegerType)
       .add("num", IntegerType)
       .add("double", IntegerType)
 
@@ -89,6 +84,8 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       .expand("value")
       .show(10, 500)
 
+//    ts.stop()
+//    ts.delete()
 //    deleteTopic(inputTopic)
 //    deleteTopic(outputTopic)
   }
