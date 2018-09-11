@@ -37,7 +37,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       df.printSchema()
 
       val newDf = df
-        .as("langDf")
+        .as("aggDf")
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 seconds")
         .groupBy(
@@ -49,9 +49,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           df.as("df"),
           expr(
           """
-            |df.type = langDf.type AND
-            |df.timestamp >= langDf.timestamp - interval 1 hour AND
-            |df.timestamp <= langDf.timestamp + interval 1 hour
+            |df.type = aggDf.type AND
+            |df.timestamp >= aggDf.timestamp - interval 1 hour AND
+            |df.timestamp <= aggDf.timestamp + interval 1 hour
           """.stripMargin))
         .select("type", "num", "avgtriple")
 
