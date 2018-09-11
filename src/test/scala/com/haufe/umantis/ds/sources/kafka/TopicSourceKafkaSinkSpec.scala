@@ -42,7 +42,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 minutes")
         .groupBy(
-          window($"tizmestamp", "6 minutes"),// "3 minutes"),
+          window($"timestamp", "6 minutes"),// "3 minutes"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
