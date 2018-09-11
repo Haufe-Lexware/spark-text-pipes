@@ -74,13 +74,18 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     result.printSchema()
 
-//    val jsonSchema = new StructType()
-//      .add("topic", StringType)
-//      .add("partition", IntegerType)
-//      .add("offset", IntegerType)
-//      .add("timestamp", TimestampType)
-//      .add("timestampType", IntegerType)
-//      .add("num", IntegerType)
+    val jsonSchema = new StructType()
+      .add("topic", StringType)
+      .add("partition", IntegerType)
+      .add("offset", IntegerType)
+      .add("timestamp", TimestampType)
+      .add("timestampType", IntegerType)
+      .add("num", IntegerType)
+      .add("double", IntegerType)
+
+    result
+      .withColumn("value", from_json($"value", jsonSchema))
+      .expand("value")
 
     result.show(10, 500)
 
