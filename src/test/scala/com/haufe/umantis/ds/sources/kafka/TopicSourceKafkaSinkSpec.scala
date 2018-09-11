@@ -42,7 +42,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 minutes")
         .groupBy(
-//          window($"timestamp", "6 minutes", "3 minutes"),
+          window($"tizmestamp", "6 minutes"),// "3 minutes"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
@@ -52,13 +52,13 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .withWatermark("timestamp", "6 minutes")
         .join(
           aggDf.as("aggDf"),
-          expr("df.type = aggDf.type")
-//          expr(
-//          """
-//            |df.type = aggDf.type AND
-//            |df.timestamp >= window.start AND
-//            |df.timestamp <= window.end
-//          """.stripMargin)
+//          expr("df.type = aggDf.type")
+          expr(
+          """
+            |df.type = aggDf.type AND
+            |df.timestamp >= window.start AND
+            |df.timestamp <= window.end
+          """.stripMargin)
         )
         .select("df.type", "num", "avgtriple")
 
