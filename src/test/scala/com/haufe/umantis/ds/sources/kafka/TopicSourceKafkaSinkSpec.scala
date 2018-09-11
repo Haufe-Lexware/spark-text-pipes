@@ -55,7 +55,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
             |df.type = aggDf.type AND
             |df.timestamp >= window.start AND
             |df.timestamp <= window.end
-          """.stripMargin))
+          """.stripMargin),
+          joinType = "leftOuter"
+        )
         .select("df.type", "num", "avgtriple")
 
       println("newDf schema")
