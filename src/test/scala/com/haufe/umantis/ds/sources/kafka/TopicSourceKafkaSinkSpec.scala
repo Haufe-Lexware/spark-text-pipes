@@ -38,27 +38,27 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       df.printSchema()
 
       val aggDf = df
-//        .as("aggDf")
+        .as("aggDf")
         .withColumn("triple", $"num" * 3)
-        .withWatermark("timestamp", "6 seconds")
+        .withWatermark("timeStamp", "6 seconds")
         .groupBy(
-//          window($"timestamp", "6 seconds", "3 seconds"),
+          window($"timeStamp", "6 seconds", "3 seconds"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
 
       val newDf = df
-//        .as("df")
-//        .withWatermark("timestamp", "6 minutes")
-        .join(aggDf, "type"
+        .as("df")
+        .withWatermark("timeStamp", "6 minutes")
+        .join(aggDf,
 //          aggDf.as("aggDf"),
 //          expr("df.type = aggDf.type")
-//          expr(
-//          """
-//            |df.type = aggDf.type AND
-//            |df.timestamp >= window.start AND
-//            |df.timestamp <= window.end
-//          """.stripMargin)
+          expr(
+          """
+            |df.type = aggDf.type AND
+            |df.timeStamp >= window.start AND
+            |df.timeStamp <= window.end
+          """.stripMargin)
         )
         .select("type", "num", "avgtriple")
 
@@ -139,5 +139,4 @@ trait TopicSourceKafkaSinkSpecFixture extends SparkSessionWrapper {
     (5, "b")
   )
     .toDF("num", "type")
-//    .withColumn("timestamp", lit(current_timestamp()))
 }
