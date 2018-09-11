@@ -93,7 +93,7 @@ class TopicSourceKafkaSink(
     */
   def delete(): this.type = {
     stop()
-    // TODO: delete kafka topic
+    deleteDataFrame(conf.fileNameLeafCheckpoint)
     this
   }
 
