@@ -37,6 +37,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       df.printSchema()
 
       val newDf = df
+        .as("langDf")
         .withColumn("triple", $"num" * 3)
         .withWatermark("timestamp", "6 seconds")
         .groupBy(
@@ -44,7 +45,14 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
-        .join(df, Seq("type"))
+        .join(
+          df.as("df"),
+          expr(
+          """
+            |df.type = langDf.type AND
+            |df.timestamp >= langDf.timestamp - interval 1 hour AND
+            |df.timestamp <= langDf.timestamp + interval 1 hour
+          """.stripMargin))
         .select("type", "num", "avgtriple")
 
       // used later in "from_json" so we don't have to manually specify the schema
