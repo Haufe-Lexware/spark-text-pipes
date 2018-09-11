@@ -84,7 +84,7 @@ extends TopicSource(conf)
 
           val s = getSource("earliest")//startingOffset)
             .writeStream
-            .outputMode("complete")
+            .outputMode("append")
 //            .option("checkpointLocation", conf.filePathCheckpoint)
             .format("memory")
             .queryName(conf.kafkaTopic.topic)
