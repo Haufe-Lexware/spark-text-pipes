@@ -32,16 +32,16 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
 
   var payloadSchema: StructType = _
-  val double: DataFrame => DataFrame = {
+  val transformationFunction: DataFrame => DataFrame = {
     df =>
       df.printSchema()
 
       val newDf = df
         .as("aggDf")
         .withColumn("triple", $"num" * 3)
-//        .withWatermark("timestamp", "6 seconds")
+        .withWatermark("timestamp", "6 seconds")
         .groupBy(
-//          window($"timestamp", "6 seconds", "3 seconds"),
+          window($"timestamp", "6 seconds", "3 seconds"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"), min($"type"))
@@ -65,7 +65,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
   }
 
-  val sinkConf = ParquetSinkConf(double, 1, 4)
+  val sinkConf = ParquetSinkConf(transformationFunction, 1, 4)
   val conf = TopicConf(kafkaConf, inputTopicName, sinkConf, Some(outputTopicName))
   val ts = new TopicSourceKafkaSink(conf)
 
