@@ -34,7 +34,8 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     df =>
       val newDf = df
       .withColumn("double", $"num" * 2)
-//      .select("key", "topic", "num", "double")
+      .select("num", "double")
+
       newDf
       .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
   }
