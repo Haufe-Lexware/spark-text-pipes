@@ -48,15 +48,15 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
       val newDf = df
         .as("df")
-        .withWatermark("timestamp", "6 minutes")
+//        .withWatermark("timestamp", "6 minutes")
         .join(
           aggDf.as("aggDf"),
           expr(
           """
             |df.type = aggDf.type AND
-            |df.timestamp >= window.start AND
-            |df.timestamp <= window.end
           """.stripMargin),
+//        df.timestamp >= window.start AND
+//          df.timestamp <= window.end
           joinType = "leftOuter"
         )
         .select("df.type", "num", "avgtriple")
