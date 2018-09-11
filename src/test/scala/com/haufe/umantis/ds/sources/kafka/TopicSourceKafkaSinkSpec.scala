@@ -45,15 +45,15 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
-//        .join(
-//          df.as("df"),
-//          expr(
-//          """
-//            |df.type = aggDf.type AND
-//            |df.timestamp >= window.start AND
-//            |df.timestamp <= window.end
-//          """.stripMargin))
-//        .select("df.type", "num", "avgtriple")
+        .join(
+          df.as("df"),
+          expr(
+          """
+            |df.type = aggDf.type AND
+            |df.timestamp >= window.start AND
+            |df.timestamp <= window.end
+          """.stripMargin))
+        .select("df.type", "num", "avgtriple")
 
       newDf.printSchema()
 //      newDf.show(10, 300)
