@@ -45,6 +45,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
+        .dropDuplicates("type")
 
       val newDf = df
         .as("df")
