@@ -56,7 +56,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
         .select("type", "num", "avgtriple")
 
       newDf.printSchema()
-      newDf.show(10, 300)
+//      newDf.show(10, 300)
 
       // used later in "from_json" so we don't have to manually specify the schema
       payloadSchema = newDf.schema
