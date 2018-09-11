@@ -33,7 +33,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val double: DataFrame => DataFrame = {
     df => df
       .withColumn("double", $"num" * 2)
-      .select("num", "double")
+      .select("key", "num", "double")
       .select(to_json(struct(df.columns.map(column):_*)).alias("value"))
   }
   val sinkConf = ParquetSinkConf(double, 1, 4)
