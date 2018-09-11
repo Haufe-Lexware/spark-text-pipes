@@ -38,9 +38,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
       val newDf = df
         .withColumn("triple", $"num" * 3)
-        .withWatermark("timestamp", "20 minutes")
+        .withWatermark("timestamp", "6 seconds")
         .groupBy(
-          window($"timestamp", "20 minutes", "10 minutes"),
+          window($"timestamp", "6 seconds", "3 seconds"),
           $"type"
         )
         .agg(avg($"triple").as("avgtriple"))
@@ -77,7 +77,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(15)
+    sleep(30)
 
     // let's read back the output topic using batch
     val result = currentSparkSession
