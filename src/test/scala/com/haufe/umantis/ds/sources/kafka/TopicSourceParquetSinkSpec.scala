@@ -23,13 +23,51 @@ import org.scalatest.Matchers._
 
 import sys.process._
 
-class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with TopicSourceSpecFixture {
+trait KafkaTest extends SparkIO {
+
+  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
+
+  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
+    val stream: java.io.InputStream =
+      new java.io.ByteArrayInputStream(
+        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
+
+    val command = Seq(
+      "/usr/bin/python3",
+      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
+      s"--brokers $kafkaBroker",
+      s"--registry $avroSchemaRegistry",
+      s"--keyschema $keyschema",
+      s"--schema $schema",
+      s"--topic $topic"
+    )
+      .mkString(" ")
+
+    command #< stream !!
+  }
+
+  def deleteTopic(topic: String): Unit = {
+    val command = Seq(
+      "/usr/bin/python3",
+      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
+      s"--brokers $kafkaBroker",
+      s"--zookeeper $zookeeper",
+      s"--topic $topic"
+    )
+      .mkString(" ")
+
+    println(command)
+
+    command !!
+  }
+}
+
+class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with KafkaTest with TopicSourceSpecFixture {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
 
   val topic = "test.event.sourcing"
-  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
 
   val kafkaConf: KafkaConf = KafkaConf(kafkaBroker, Some(avroSchemaRegistry))
   val topicName =
@@ -52,37 +90,7 @@ class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with TopicSour
   val ts = new TopicSourceEventSourcing(conf)
 
   def sendEvents(events: String): String = {
-    val stream: java.io.InputStream =
-      new java.io.ByteArrayInputStream(
-        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-      s"--brokers $kafkaBroker",
-      s"--registry $avroSchemaRegistry",
-      s"--keyschema $keyschema",
-      s"--schema $schema",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    command #< stream !!
-  }
-
-  def deleteTopic(): Unit = {
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-      s"--brokers $kafkaBroker",
-      s"--zookeeper $zookeeper",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    println(command)
-
-    command !!
+    sendEvents(keyschema, schema, topic, events)
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
@@ -94,7 +102,7 @@ class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with TopicSour
   "TopicSource" should "get data from kafka, including updates, deletes, and resets." in {
 
     // ensure the topic does not exist
-    deleteTopic()
+    deleteTopic(topic)
 
     // entity creation
     sendEvents(createABC)
@@ -127,7 +135,7 @@ class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with TopicSour
       "NOTE by Nicola Bova: An exception should be printed on screen, " +
       "as the Kafka topic has just ben deleted and Sparks complains about it." +
       "TopicSource, however, should be able to reset its state and continue to work.\n")
-    deleteTopic()
+    deleteTopic(topic)
     sendEvents(createABC)
     sleep(2)
     show()
@@ -135,7 +143,7 @@ class TopicSourceEventSourcingSpec extends SparkSpec with SparkIO with TopicSour
 
     // cleanup
     ts.stop()
-    deleteTopic()
+    deleteTopic(topic)
   }
 }
 

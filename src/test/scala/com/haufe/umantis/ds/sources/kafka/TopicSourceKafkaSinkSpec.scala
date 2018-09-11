@@ -22,7 +22,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
 
 class TopicSourceKafkaSinkSpec extends SparkSpec
-  with SparkIO with TopicSourceKafkaSinkSpecFixture {
+  with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture {
   import currentSparkSession.implicits._
 
   val inputTopic = "test.kafka.sink.input"
@@ -42,6 +42,10 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
 
   "TopicSourceKafkaSink" should "get data from kafka" in {
+    // ensure we start clean
+    deleteTopic(inputTopic)
+    deleteTopic(outputTopic)
+
     // writing to kafka batch (no streaming)
     df
       .select(to_json(struct(df.columns.map(column):_*)).alias("value"))
@@ -53,7 +57,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
-    ts.start()
+    ts.reset()
     sleep(5)
 
     // let's read back the output topic using batch
@@ -75,8 +79,8 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     result.show(10, 100)
 
-
-
+//    deleteTopic(inputTopic)
+//    deleteTopic(outputTopic)
   }
 
 
