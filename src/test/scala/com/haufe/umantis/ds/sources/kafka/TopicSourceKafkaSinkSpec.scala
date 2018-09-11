@@ -30,18 +30,24 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val kafkaConf: KafkaConf = KafkaConf(kafkaBroker, None)
   val inputTopicName = new GenericTopicName(inputTopic, "value", None)
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
+
   var payloadSchema: StructType = _
   val double: DataFrame => DataFrame = {
     df =>
       val newDf = df
-      .withColumn("double", $"num" * 2)
-      .select("num", "double")
+        .withColumn("triple", $"num" * 3)
+        .groupBy($"type")
+        .agg(avg($"triple").as("avgtriple"))
+        .join(df, Seq("type"))
+        .select("type", "num", "avgtriple")
 
+      // used later in "from_json" so we don't have to manually specify the schema
       payloadSchema = newDf.schema
 
       newDf
       .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
   }
+
   val sinkConf = ParquetSinkConf(double, 1, 4)
   val conf = TopicConf(kafkaConf, inputTopicName, sinkConf, Some(outputTopicName))
   val ts = new TopicSourceKafkaSink(conf)
@@ -78,10 +84,6 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     result.printSchema()
 
-//    val jsonSchema = new StructType()
-//      .add("num", IntegerType)
-//      .add("double", IntegerType)
-
     result
       .withColumn("value", from_json($"value", payloadSchema))
       .expand("value")
@@ -99,9 +101,11 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 trait TopicSourceKafkaSinkSpecFixture extends SparkSessionWrapper {
   import currentSparkSession.implicits._
 
-
-
   val df: DataFrame = Seq(
-    1, 2, 3, 4, 5
-  ).toDF("num")
+    (1, "a"),
+    (2, "b"),
+    (3, "a"),
+    (4, "a"),
+    (5, "b")
+  ).toDF("num", "type")
 }
