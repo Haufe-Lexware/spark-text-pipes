@@ -63,6 +63,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       .option("kafka.bootstrap.servers", kafkaBroker)
       .option("subscribe", outputTopic)
       .load()
+      .byteArrayToString("value")
+
+    result.printSchema()
 
 //    val jsonSchema = new StructType()
 //      .add("employeeId", StringType)
