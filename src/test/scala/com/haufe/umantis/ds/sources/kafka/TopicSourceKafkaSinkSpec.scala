@@ -31,7 +31,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val inputTopicName = new GenericTopicName(inputTopic, "value", None)
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
   val double: DataFrame => DataFrame = {
-    df => df.withColumn("double", $"num" * 2)
+    df => df
+      .withColumn("double", $"num" * 2)
+      .select(to_json(struct(df.columns.map(column):_*)).alias("value"))
   }
   val sinkConf = ParquetSinkConf(double, 1, 4)
   val conf = TopicConf(kafkaConf, inputTopicName, sinkConf, Some(outputTopicName))
