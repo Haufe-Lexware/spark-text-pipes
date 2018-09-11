@@ -44,7 +44,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
           window($"timestamp", "6 seconds", "3 seconds"),
           $"type"
         )
-        .agg(avg($"triple").as("avgtriple"))
+        .agg(avg($"triple").as("avgtriple"), min($"timestamp").as("timestamp"))
         .join(
           df.as("df"),
           expr(
