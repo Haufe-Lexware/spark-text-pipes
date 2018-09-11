@@ -55,6 +55,8 @@ class TopicSourceKafkaSink(
       try {
         val s = getSource("earliest")//startingOffset)
           .writeStream
+          .outputMode("update")
+          .option("checkpointLocation", conf.filePathCheckpoint)
           .format("kafka")
           .options(options)
           .trigger(conf.kafkaTopic.trigger)
