@@ -100,7 +100,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     // here we read from the input topic, we double the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(200)
+    sleep(20)
 
     // let's read back the output topic using batch
     val result = currentSparkSession
