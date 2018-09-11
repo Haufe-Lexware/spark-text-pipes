@@ -19,7 +19,7 @@ import com.haufe.umantis.ds.spark.{SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{IntegerType, StringType, StructType}
+import org.apache.spark.sql.types.{IntegerType, StringType, StructType, TimestampType}
 
 class TopicSourceKafkaSinkSpec extends SparkSpec
   with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture {
@@ -31,10 +31,12 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val inputTopicName = new GenericTopicName(inputTopic, "value", None)
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
   val double: DataFrame => DataFrame = {
-    df => df
+    df =>
+      val newDf = df
       .withColumn("double", $"num" * 2)
 //      .select("key", "topic", "num", "double")
-      .select(to_json(struct(df.columns.map(column):_*)).alias("value"))
+      newDf
+      .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
   }
   val sinkConf = ParquetSinkConf(double, 1, 4)
   val conf = TopicConf(kafkaConf, inputTopicName, sinkConf, Some(outputTopicName))
@@ -73,12 +75,14 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     result.printSchema()
 
 //    val jsonSchema = new StructType()
-//      .add("employeeId", StringType)
-//      .add("jobId", StringType)
-//      .add("jobTypeAppropriate", IntegerType)
-//      .add("jobSeniorityAppropriate", IntegerType)
+//      .add("topic", StringType)
+//      .add("partition", IntegerType)
+//      .add("offset", IntegerType)
+//      .add("timestamp", TimestampType)
+//      .add("timestampType", IntegerType)
+//      .add("num", IntegerType)
 
-    result.show(10, 300)
+    result.show(10, 500)
 
 //    deleteTopic(inputTopic)
 //    deleteTopic(outputTopic)
