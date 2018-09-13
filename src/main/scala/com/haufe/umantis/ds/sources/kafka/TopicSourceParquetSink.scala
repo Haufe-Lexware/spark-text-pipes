@@ -117,9 +117,13 @@ extends TopicSource(conf)
           sinkProcessingThread match {
             case Some(t) =>
               println("waiting")
-              while(t.isAlive) {
-                t.wait()
-                Thread.sleep(10)
+              try {
+                while (t.isAlive) {
+                  t.wait()
+                  Thread.sleep(10)
+                }
+              } catch {
+                case _: IllegalMonitorStateException => ;
               }
 
             case _ =>

@@ -55,6 +55,8 @@ class TopicSourceKafkaSink(
       try {
         val s = getSource("earliest")//startingOffset)
           .writeStream
+          .outputMode("append")
+          .option("checkpointLocation", conf.filePathCheckpoint)
           .format("kafka")
           .options(options)
           .trigger(conf.kafkaTopic.trigger)
@@ -91,7 +93,8 @@ class TopicSourceKafkaSink(
     */
   def delete(): this.type = {
     stop()
-    // TODO: delete kafka topic
+    // TODO: shall we delete the kafka topic?
+    deleteDataFrame(conf.fileNameLeafCheckpoint)
     this
   }
 

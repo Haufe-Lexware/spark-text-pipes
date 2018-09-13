@@ -28,7 +28,8 @@ class EnginePerformanceSpec extends SparkSpec {
   val spark: SparkSession = currentSparkSession
 
 
-  "Spark" should " make computation" taggedAs Slow ignore {
+  // change ignore with "Spark" to run it
+  ignore should " make computation" taggedAs Slow in {
     import org.apache.spark.ml.linalg.{DenseVector, Vectors}
     import org.apache.spark.mllib.linalg.DenseMatrix
     import org.apache.spark.mllib.linalg.distributed.RowMatrix
