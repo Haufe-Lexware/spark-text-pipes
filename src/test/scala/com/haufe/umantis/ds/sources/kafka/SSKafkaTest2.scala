@@ -1,16 +1,13 @@
 //package com.haufe.umantis.ds.sources.kafka
 
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
-
-import scala.util.Try
+import org.apache.spark.sql.types.{StringType, StructType}
 
 
-object MyKafkaTest {
+object MyKafkaTest2 {
 
-  val ss: SparkSession = SparkSession.builder().getOrCreate()
+  val spark: SparkSession = SparkSession.builder().getOrCreate()
 
   def test: DataFrame = {
 
@@ -21,24 +18,18 @@ object MyKafkaTest {
       }
 
       def byteArrayToString(column: String): DataFrame = {
-        val byteArrayToStringUDF: UserDefinedFunction =
-          udf((payload: Array[Byte]) => Try(new String(payload)).getOrElse(null))
-
-        df.withColumn(column, byteArrayToStringUDF(col(column)))
+        val selectedCols = df.columns.filter(_ != column) :+ s"CAST($column AS STRING)"
+        df.selectExpr(selectedCols: _*)
       }
     }
 
-    import ss.implicits._
+    import spark.implicits._
 
     val brokers = "kafka:9092"
 
     val payloadSchema: StructType = new StructType()
       .add("owner", StringType)
       .add("fruits", StringType)
-
-    val payloadSchemaA: StructType = new StructType()
-      .add("owner", StringType)
-      .add("fruitsA", StringType)
 
     val sourceDf = Seq(
       ("Brian", "apple"),
@@ -64,7 +55,7 @@ object MyKafkaTest {
       .save()
 
     // kafka source
-    val farmDF = ss
+    val farmDF = spark
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", brokers)
@@ -81,54 +72,34 @@ object MyKafkaTest {
     val myFarmDF = farmDF
       .withWatermark("timestamp", "30 seconds")
       .groupBy(
-//        window($"timestamp", "6 seconds"),
+        window($"timestamp", "30 seconds", "15 seconds"),
         $"owner"
       )
       .agg(collect_list(col("fruits")) as "fruitsA")
-      .select("owner", "fruitsA")
+      .select("owner", "fruitsA", "window")
 
-    myFarmDF
-      .select(to_json(struct(myFarmDF.columns.map(column):_*)).alias("value"))
-      .writeStream
-      .outputMode("update")
-      .option("kafka.bootstrap.servers", brokers)
-      .option("checkpointLocation", "/data/kafka/checkpointagg")
-      .option("topic", aggTopic)
-      .format("kafka")
-      .start()
-
+    // giving some time to process it
     Thread.sleep(10000)
-
-    val aggDF = ss
-      .readStream
-      .format("kafka")
-      .option("kafka.bootstrap.servers", brokers)
-      .option("startingOffsets", "earliest")
-      .option("subscribe", aggTopic)
-      .load()
-      .byteArrayToString("value")
-      .withColumn("value", from_json($"value", payloadSchemaA))
-      .expand("value")
-      .withWatermark("timestamp", "30 seconds")
 
     // joined df
     val joinedDF = farmDF
-      .as("farmDF")
+        .as("farmDF")
+      .withWatermark("timestamp", "30 seconds")
       .join(
-        aggDF.as("myFarmDF"),
+        myFarmDF.as("myFarmDF"),
         expr(
           """
             |farmDF.owner = myFarmDF.owner AND
-            |farmDF.timestamp >= myFarmDF.timestamp - interval 1 hour AND
-            |farmDF.timestamp <= myFarmDF.timestamp + interval 1 hour
+            |farmDF.timestamp >= myFarmDF.window.start AND
+            |farmDF.timestamp <= myFarmDF.window.end
           """.stripMargin))
-      .select("farmDF.owner", "myFarmDF.fruitsA", "farmDF.fruits")
+      .select("farmDF.owner", "farmDF.fruits", "myFarmDF.fruitsA")
 
     val schema = joinedDF.schema
 
     // stream sink
     joinedDF
-      .select(to_json(struct(joinedDF.columns.map(column):_*)).alias("value"))
+      .select(to_json(struct(joinedDF.columns.map(column): _*)).alias("value"))
       .writeStream
       .outputMode("append")
       .option("kafka.bootstrap.servers", brokers)
@@ -141,7 +112,7 @@ object MyKafkaTest {
     Thread.sleep(10000)
 
     // let's read back the output topic using kafka batch
-    ss
+    spark
       .read
       .format("kafka")
       .option("kafka.bootstrap.servers", brokers)

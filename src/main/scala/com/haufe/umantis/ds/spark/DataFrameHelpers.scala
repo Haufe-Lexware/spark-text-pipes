@@ -68,8 +68,6 @@ trait DataFrameHelpers extends SparkSessionWrapper {
 
     private val intToStringUDF: UserDefinedFunction = udf({ x: Int => x.toString })
     private val stringToDoubleUDF: UserDefinedFunction = udf({ x: String => x.toDouble })
-    private val byteArrayToStringUDF: UserDefinedFunction =
-      udf((payload: Array[Byte]) => Try(new String(payload)).getOrElse(null))
 
     def intToString(column: String): DataFrame = {
       df.withColumn(column, intToStringUDF(col(column)))
@@ -79,9 +77,12 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df.withColumn(column, stringToDoubleUDF(col(column)))
     }
 
-    def byteArrayToString(column: String): DataFrame = {
-      df.withColumn(column, byteArrayToStringUDF(col(column)))
+    def byteArrayToString(columns: Seq[String]): DataFrame = {
+      val selectedCols = df.columns.map(c => if (columns.contains(c)) s"CAST($c AS STRING)" else c)
+      df.selectExpr(selectedCols:_*)
     }
+
+    def byteArrayToString(column: String): DataFrame = byteArrayToString(Seq(column))
 
     def deserializeAvro(column: String, deserializingFunction: UserDefinedFunction): DataFrame = {
       df.withColumn(column, deserializingFunction(col(column)))

@@ -1,3 +1,5 @@
+package com.haufe.umantis.ds.sources.kafka
+
 //package com.haufe.umantis.ds.sources.kafka
 
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -8,7 +10,7 @@ import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import scala.util.Try
 
 
-object MyKafkaTest {
+object MyKafkaTest4 {
 
   val ss: SparkSession = SparkSession.builder().getOrCreate()
 
@@ -111,6 +113,11 @@ object MyKafkaTest {
       .expand("value")
       .withWatermark("timestamp", "30 seconds")
 
+//    val latestAgg = aggDF
+//      .as("myFarmDF")
+//      .groupBy($"owner")
+//      .agg(max($"timestamp"))
+
     // joined df
     val joinedDF = farmDF
       .as("farmDF")
@@ -120,7 +127,8 @@ object MyKafkaTest {
           """
             |farmDF.owner = myFarmDF.owner AND
             |farmDF.timestamp >= myFarmDF.timestamp - interval 1 hour AND
-            |farmDF.timestamp <= myFarmDF.timestamp + interval 1 hour
+            |farmDF.timestamp <= myFarmDF.timestamp + interval 1 hour AND
+            |myFarmDF.timestamp = (SELECT max(myFarmDF.timestamp) FROM myFarmDF latest WHERE latest.owner = farmDF.owner)
           """.stripMargin))
       .select("farmDF.owner", "myFarmDF.fruitsA", "farmDF.fruits")
 

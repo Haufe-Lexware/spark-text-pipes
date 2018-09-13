@@ -1,3 +1,5 @@
+package com.haufe.umantis.ds.sources.kafka
+
 //package com.haufe.umantis.ds.sources.kafka
 
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -79,49 +81,48 @@ object MyKafkaTest {
 
     // aggregated df
     val myFarmDF = farmDF
-      .withWatermark("timestamp", "30 seconds")
+      .withWatermark("timestamp", "5 minutes")
       .groupBy(
-//        window($"timestamp", "6 seconds"),
+        window($"timestamp", "5 minutes"),
         $"owner"
       )
       .agg(collect_list(col("fruits")) as "fruitsA")
-      .select("owner", "fruitsA")
+      .withColumn("event", current_timestamp())
+      .select("owner", "fruitsA", "event")
 
     myFarmDF
-      .select(to_json(struct(myFarmDF.columns.map(column):_*)).alias("value"))
       .writeStream
-      .outputMode("update")
-      .option("kafka.bootstrap.servers", brokers)
-      .option("checkpointLocation", "/data/kafka/checkpointagg")
-      .option("topic", aggTopic)
-      .format("kafka")
+      .outputMode("append")
+      .queryName("myFarmDfAgg")
+      .format("memory")
       .start()
 
     Thread.sleep(10000)
 
-    val aggDF = ss
-      .readStream
-      .format("kafka")
-      .option("kafka.bootstrap.servers", brokers)
-      .option("startingOffsets", "earliest")
-      .option("subscribe", aggTopic)
-      .load()
-      .byteArrayToString("value")
-      .withColumn("value", from_json($"value", payloadSchemaA))
-      .expand("value")
-      .withWatermark("timestamp", "30 seconds")
+    val aggDf = ss.sql("""
+        |SELECT fruitsA, owner
+        |FROM myFarmDfAgg Agg1
+        |WHERE event = (SELECT MAX(event) FROM myFarmDfAgg Agg2 WHERE Agg1.owner = Agg2.owner)
+      """.stripMargin)
+
+//    val aggDF = ss
+//      .readStream
+//      .format("kafka")
+//      .option("kafka.bootstrap.servers", brokers)
+//      .option("startingOffsets", "earliest")
+//      .option("subscribe", aggTopic)
+//      .load()
+//      .byteArrayToString("value")
+//      .withColumn("value", from_json($"value", payloadSchemaA))
+//      .expand("value")
+//      .withWatermark("timestamp", "30 seconds")
 
     // joined df
     val joinedDF = farmDF
       .as("farmDF")
       .join(
-        aggDF.as("myFarmDF"),
-        expr(
-          """
-            |farmDF.owner = myFarmDF.owner AND
-            |farmDF.timestamp >= myFarmDF.timestamp - interval 1 hour AND
-            |farmDF.timestamp <= myFarmDF.timestamp + interval 1 hour
-          """.stripMargin))
+        aggDf.as("myFarmDF"),
+        expr("farmDF.owner = myFarmDF.owner"))
       .select("farmDF.owner", "myFarmDF.fruitsA", "farmDF.fruits")
 
     val schema = joinedDF.schema
