@@ -7,6 +7,7 @@ import org.apache.spark.ml.param.shared.{HasInputCol, HasOutputCol}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.types.{StructField, StructType}
 
 
@@ -20,7 +21,12 @@ class URLValidator(override val uid: String)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val result = dataset.toDF().rdd.mapPartitions(iter => {
+    val df = dataset.toDF()
+    val newSchema = transformSchema(dataset.schema)
+    import org.apache.spark.sql.catalyst.encoders.RowEncoder
+    implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
+
+    df.mapPartitions(iter => {
       iter.map(r => {
         val urls = r.getAs[Seq[String]]($(inputCol))
         val validatedUrls = urls.filter(url => URLIdentifier.isValid(url.toLowerCase))
@@ -28,8 +34,6 @@ class URLValidator(override val uid: String)
         Row.fromSeq(r.toSeq :+ validatedUrls)
       })
     })
-
-    dataset.sparkSession.createDataFrame(result, transformSchema(dataset.schema))
   }
 
     /** @group setParam */

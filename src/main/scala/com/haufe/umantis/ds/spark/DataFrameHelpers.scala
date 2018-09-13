@@ -17,6 +17,7 @@ package com.haufe.umantis.ds.spark
 
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
@@ -164,7 +165,14 @@ trait DataFrameHelpers extends SparkSessionWrapper {
         colsDataTypesSet.head
       }
 
-      val result = df.rdd.mapPartitions(iter => {
+      val outputFields = df.schema.fields :+
+        StructField(outputCol, outputColDatatype, nullable = true)
+
+      val newSchema = StructType(outputFields)
+      import org.apache.spark.sql.catalyst.encoders.RowEncoder
+      implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
+
+      df.mapPartitions(iter => {
 
         iter.map{r => {
           val res = inputCols.flatMap(c => {
@@ -174,11 +182,6 @@ trait DataFrameHelpers extends SparkSessionWrapper {
           Row.fromSeq(r.toSeq :+ res)
         }}
       })
-
-      val outputFields = df.schema.fields :+
-        StructField(outputCol, outputColDatatype, nullable = true)
-
-      df.sparkSession.createDataFrame(result, StructType(outputFields))
     }
 
     /**

@@ -23,6 +23,7 @@ import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
 import org.apache.spark.sql.types.{StructField, StructType}
 import com.haufe.umantis.ds.nlp.params.ValidateColumnSchema
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 
 class URLExpander(override val uid: String)
@@ -31,7 +32,12 @@ class URLExpander(override val uid: String)
   def this() = this(Identifiable.randomUID("URLExpander"))
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val result = dataset.toDF().rdd.mapPartitions(iter => {
+    val df = dataset.toDF()
+    val newSchema = transformSchema(dataset.schema)
+    import org.apache.spark.sql.catalyst.encoders.RowEncoder
+    implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
+
+    df.mapPartitions(iter => {
       val expander: URLUnshortener = URLUnshortener()
 
       iter.map(r => {
@@ -44,8 +50,6 @@ class URLExpander(override val uid: String)
         Row.fromSeq(r.toSeq :+ expandedUrls)
       })
     })
-
-    dataset.sparkSession.createDataFrame(result, transformSchema(dataset.schema))
   }
 
   /** @group setParam */

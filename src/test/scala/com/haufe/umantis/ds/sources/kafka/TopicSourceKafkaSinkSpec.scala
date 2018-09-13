@@ -17,9 +17,11 @@ package com.haufe.umantis.ds.sources.kafka
 
 import com.haufe.umantis.ds.spark.{SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{LongType, StructType}
+import org.apache.spark.sql.types.{LongType, StructField, StructType}
 
 class TopicSourceKafkaSinkSpec extends SparkSpec
   with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture {
@@ -34,14 +36,32 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   var payloadSchema: StructType = _
   val transformationFunction: DataFrame => DataFrame = {
     df =>
-      val newDf = df
+
+      val df1 = df
         .withColumn("triple", $"num" * 3)
         .select("num", "type", "triple")
 
-      payloadSchema = newDf.schema
+      val newSchema = StructType(
+        df1.schema.fields :+
+          StructField("mapPartCol", schemaFor[Long].dataType, nullable = true)
+      )
 
-      newDf
-        .select(to_json(struct(newDf.columns.map(column):_*)).alias("value"))
+      import org.apache.spark.sql.catalyst.encoders.RowEncoder
+      implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
+
+      val df2 = df1
+        .mapPartitions(iter => {
+          iter.map(r => {
+            val s = r.getAs[Long]("num")
+
+            Row.fromSeq(r.toSeq :+ s)
+          })
+        })
+
+      payloadSchema = df2.schema
+
+      df2
+        .select(to_json(struct(df2.columns.map(column):_*)).alias("value"))
   }
 
   val sinkConf = ParquetSinkConf(transformationFunction, 1, 4)
@@ -81,14 +101,18 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       .byteArrayToString("value")
       .withColumn("value", from_json($"value", payloadSchema))
       .expand("value")
-      .select("num", "type", "triple")
+      .select("num", "type", "triple", "mapPartCol")
       .sort("num")
+
+    result.show(false)
 
     val expectedResult = df
       .withColumn("triple", $"num" * 3)
-      .select($"num".cast(LongType), $"type", $"triple".cast(LongType))
+      .withColumn("mapPartCol", $"num")
+      .select($"num".cast(LongType), $"type", $"triple".cast(LongType), $"mapPartCol".cast(LongType))
       .setNullableStateOfColumn("num", nullable = true)
       .setNullableStateOfColumn("triple", nullable = true)
+      .setNullableStateOfColumn("mapPartCol", nullable = true)
 
     assertSmallDataFrameEquality(result, expectedResult)
 
