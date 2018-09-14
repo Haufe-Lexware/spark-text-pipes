@@ -34,11 +34,10 @@ case class Table(
   version: String = "v1",
   refreshTime: Option[Int] = None /* seconds */,
 
-  // for avro keys
   uniqueEntityKey: Option[UserDefinedFunction] =
     Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF),
 
-  // for non-avro key (String)
-  // uniqueEntityKey: UserDefinedFunction = UniqueIdentityKeys.EntityAndTimestampFromStringKeyUDF
-  trigger: Trigger = Trigger.ProcessingTime(0)
+  trigger: Trigger = Trigger.ProcessingTime(0),
+
+  outputName: Option[String] = None
 )

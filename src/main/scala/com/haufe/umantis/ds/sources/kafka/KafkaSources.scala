@@ -53,7 +53,12 @@ extends Source with SparkIO with SourceCollection[T]
       val input = TopicConf(
         kafkaConf,
         getTopicName(table),
-        SinkConf(table.transformation, table.refreshTime.getOrElse(defaultRefreshTime), 40)
+        SinkConf(table.transformation, table.refreshTime.getOrElse(defaultRefreshTime), 40),
+        table.outputName match {
+          case Some(n) =>
+            Some(new GenericTopicName(n, payLoadField, table.uniqueEntityKey, table.trigger))
+          case _ => None
+        }
       )
 
       table.name -> createTopic(input)
