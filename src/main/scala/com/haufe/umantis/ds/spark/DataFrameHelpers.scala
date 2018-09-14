@@ -20,9 +20,9 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DataType, StringType, StructField, StructType}
+import org.apache.spark.sql.types._
 
-import scala.util.Try
+import scala.collection.mutable
 
 
 trait DataFrameHelpers extends SparkSessionWrapper {
@@ -51,52 +51,45 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       * @return The modified DataFrame
       */
     def expand(column: String): DataFrame = {
-      val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
-      df.select(wantedColumns.map(col):_*)
+      val wantedColumns =
+        df.columns.map(c => if (c == column) col(s"$column.*") else col(c))
+      df.select(wantedColumns:_*)
     }
 
     def emptyDfWithSameSchema: DataFrame = {
       currentSparkSession.createDataFrame(currentSparkSession.sparkContext.emptyRDD[Row], df.schema)
     }
 
-    def sanitizeColumnNames(replacement: String = ""): DataFrame = {
+    def sanitizeColumnNames(
+                             replacement: String = "",
+                             inverseReplacements: Option[mutable.Map[String, String]] = None
+                           )
+    : DataFrame = {
+
       val cleanColNames = df
         .columns
-        .map(c => """[^\p{Ll}\p{Lu}0-9]""".r.replaceAllIn(c, replacement))
+        .map(oldName => {
+          val newName = """[^\p{Ll}\p{Lu}0-9]""".r.replaceAllIn(oldName, replacement)
+          inverseReplacements match {
+            case Some(m) => m.put(newName, oldName)
+            case _ =>
+          }
+          newName
+        })
 
       df.toDF(cleanColNames:_*)
     }
 
-    private val intToStringUDF: UserDefinedFunction = udf({ x: Int => x.toString })
-    private val stringToDoubleUDF: UserDefinedFunction = udf({ x: String => x.toDouble })
-    private val byteArrayToStringUDF: UserDefinedFunction =
-      udf((payload: Array[Byte]) => Try(new String(payload)).getOrElse(null))
+    def renameCols(replacements: mutable.Map[String, String]): DataFrame = {
+      val newColNames = df
+        .columns
+        .map(oldName => replacements.getOrElse(oldName, oldName))
 
-    def intToString(column: String): DataFrame = {
-      df.withColumn(column, intToStringUDF(col(column)))
-    }
-
-    def stringToDouble(column: String): DataFrame = {
-      df.withColumn(column, stringToDoubleUDF(col(column)))
-    }
-
-    def byteArrayToString(column: String): DataFrame = {
-      df.withColumn(column, byteArrayToStringUDF(col(column)))
+      df.toDF(newColNames:_*)
     }
 
     def deserializeAvro(column: String, deserializingFunction: UserDefinedFunction): DataFrame = {
       df.withColumn(column, deserializingFunction(col(column)))
-    }
-
-    def allNullOrEmptyStringsToDot: DataFrame = {
-      val safeString: String => String = s => if (s == null || s == "") "." else s
-      val udfSafeString = udf(safeString)
-
-      val safeCols = df.schema.map(field =>
-        if (field.dataType == StringType) udfSafeString(col(field.name)).alias(field.name)
-        else col(field.name))
-
-      df.select(safeCols:_*)
     }
 
     def toSeqOfMaps: Seq[Map[String, Any]] = {
@@ -148,7 +141,8 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       * @param inputCols The sequence of the columns to merge
       * @return A new DataFrame
       */
-    def mergeArrayColumns(outputCol: String, inputCols: Seq[String]): DataFrame = {
+    def mergeArrayColumns(outputCol: String, inputCols: Seq[String], dropColumns: Boolean = false)
+    : DataFrame = {
 
       import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -172,7 +166,7 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       import org.apache.spark.sql.catalyst.encoders.RowEncoder
       implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
 
-      df.mapPartitions(iter => {
+      val result = df.mapPartitions(iter => {
 
         iter.map{r => {
           val res = inputCols.flatMap(c => {
@@ -182,6 +176,8 @@ trait DataFrameHelpers extends SparkSessionWrapper {
           Row.fromSeq(r.toSeq :+ res)
         }}
       })
+
+      if (dropColumns) result.drop(inputCols:_*) else result
     }
 
     /**

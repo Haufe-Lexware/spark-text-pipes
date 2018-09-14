@@ -18,6 +18,7 @@ package com.haufe.umantis.ds.sources.kafka
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import com.haufe.umantis.ds.spark.DataFrameHelpers
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.expressions.UserDefinedFunction
 
 import scala.util.Try
@@ -66,12 +67,12 @@ class KafkaDeserializer(conf: TopicConf) {
 
       val dfTmp = avroKeyDeserializer match {
         case Some(des) => df.deserializeAvro(keyColumn, des)
-        case _ => df.byteArrayToString(keyColumn)
+        case _ => df.withColumn(keyColumn, col(keyColumn).cast("string"))
       }
 
       avroValueDeserializer match {
         case Some(des) => dfTmp.deserializeAvro(valueColumn, des)
-        case _ => dfTmp.byteArrayToString(valueColumn)
+        case _ => dfTmp.withColumn(valueColumn, col(valueColumn).cast("string"))
       }
     }
   }

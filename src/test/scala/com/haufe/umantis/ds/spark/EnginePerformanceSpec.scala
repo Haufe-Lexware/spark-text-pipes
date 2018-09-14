@@ -18,7 +18,6 @@ package com.haufe.umantis.ds.spark
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.SparkSession
-import org.scalatest.Matchers._
 import org.scalatest.tagobjects.Slow
 
 

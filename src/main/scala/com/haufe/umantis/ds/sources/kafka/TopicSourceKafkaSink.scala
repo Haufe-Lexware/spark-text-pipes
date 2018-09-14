@@ -149,7 +149,7 @@ class TopicSourceKafkaSink(
       .option("startingOffsets", "earliest")
       .option("subscribe", outputTopicName)
       .load()
-      .byteArrayToString("value")
+      .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
       .repartition(conf.parquetSink.numPartitions)

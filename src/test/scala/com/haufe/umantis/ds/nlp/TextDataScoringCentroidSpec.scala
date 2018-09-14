@@ -96,7 +96,7 @@ trait TextDataScoringCentroidSpecFixture extends SparkSessionWrapper with DataFr
   )
     .toDF(textCols.language, textCols.cleanWords)
     .withColumn("id", monotonically_increasing_id)
-    .intToString("id")
+    .withColumn("id", $"id".cast("string"))
 
   val model: EmbeddingsModel = DsPipeline.getEmbeddingsModel(textCols)
 

@@ -37,7 +37,7 @@ trait CoordinatesFetcherSpecFixture extends SparkSessionWrapper {
 
   val df: DataFrame = Seq(
     ("Naples", "it"),
-    ("New York", null)
+    ("New York", "us")
   )
     .toDF(cols.locationCol, countryCol)
 }

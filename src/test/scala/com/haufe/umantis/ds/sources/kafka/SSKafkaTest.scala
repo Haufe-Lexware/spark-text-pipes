@@ -61,7 +61,7 @@ object SSAggJoinTest {
     .option("startingOffsets", "earliest")
     .option("subscribe", inputTopic)
     .load()
-    .byteArrayToString("value")
+    .withColumn("value", $"value".cast("string"))
     .withColumn("value", from_json($"value", payloadSchema))
     .expand("value")
 
@@ -71,11 +71,6 @@ object SSAggJoinTest {
     def expand(column: String): DataFrame = {
       val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
       df.select(wantedColumns.map(col): _*)
-    }
-
-    def byteArrayToString(column: String): DataFrame = {
-      val selectedCols = df.columns.filter(_ != column) :+ s"CAST($column AS STRING)"
-      df.selectExpr(selectedCols: _*)
     }
   }
 
@@ -246,7 +241,7 @@ object SSAggJoinTest {
       .option("startingOffsets", "earliest")
       .option("subscribe", aggTopic)
       .load()
-      .byteArrayToString("value")
+      .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", payloadSchemaA))
       .expand("value")
       .withWatermark("timestamp", "30 seconds")
@@ -295,7 +290,7 @@ object SSAggJoinTest {
       .option("kafka.bootstrap.servers", brokers)
       .option("subscribe", topic)
       .load()
-      .byteArrayToString("value")
+      .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", mySchema))
       .expand("value")
   }
