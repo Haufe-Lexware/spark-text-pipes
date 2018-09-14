@@ -19,7 +19,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import org.apache.spark.sql.{AnalysisException, DataFrame}
+import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable
 import scala.util.Try
@@ -39,22 +39,9 @@ import scala.util.Try
 class TopicSourceParquetSink(
                              conf: TopicConf
                             )
-extends TopicSource(conf)
+extends TopicSourceSink(conf)
 {
-  var dataFrame: Option[DataFrame] = None
-
-  var lastTimestamp: Long = 0
-
   private var startingOffset: String = "latest"
-
-  private var readOnly: Boolean = false
-
-  def isReadOnly: Boolean = readOnly
-
-  def readOnly(value: Boolean): this.type = {
-    readOnly = value
-    this
-  }
 
   private def checkParquetOnly(f: () => Unit): this.type = {
     if (isReadOnly) {
@@ -175,117 +162,23 @@ extends TopicSource(conf)
     )
   }
 
-  def postProcessParquet(df: DataFrame): DataFrame = {
+  def postProcessDf(df: DataFrame): DataFrame = {
     df
   }
 
-  /**
-    * @return An always fresh copy of the data in DataFrame format
-    */
-  def freshData: DataFrame = {
-    lastTimestamp = 0
-    data
-  }
+  def doUpdateDf(): DataFrame = {
+    val fname = s"$dataRoot${conf.fileNameLeaf}.parquet"
 
-  /**
-    * @return A fresh or cached copy of the data in DataFrame format
-    */
-  def data: DataFrame = {
+    val diskDf = currentSparkSession
+      .sql(s"select * from parquet.`$fname`")
+      .toDF()
+      .repartition(conf.parquetSink.numPartitions)
 
-    def getTimestamp: Long = System.currentTimeMillis / 1000
+    val newDataFrame = postProcessDf(diskDf)
+      .cache()
 
-    def doUpdateDf(): DataFrame = {
-      val fname = s"$dataRoot${conf.fileNameLeaf}.parquet"
-
-      val diskDf = currentSparkSession
-        .sql(s"select * from parquet.`$fname`")
-        .toDF()
-        .repartition(conf.parquetSink.numPartitions)
-
-      val newDataFrame = postProcessParquet(diskDf)
-        .cache()
-
-      dataFrame = Some(newDataFrame)
-      newDataFrame
-    }
-
-    def updateDf(): DataFrame = {
-      log("Updating DataFrame")
-//      Thread.sleep(100)
-
-      sink match {
-        case Some(_) =>
-          (1 to 30).foreach(retryNr => {
-            log(s"Reading Parquet try # $retryNr")
-
-            try{
-              return doUpdateDf()
-            } catch {
-              case _: AnalysisException =>
-                Thread.sleep(1000)
-            }
-          })
-        case _ =>
-          // in case isReadOnly == true
-          return doUpdateDf()
-      }
-
-      throw new KafkaTopicNotAvailableException(
-        s"Kafka topic ${conf.kafkaTopic.topic} not ready!")
-    }
-
-    sink match {
-      case Some(s) =>
-        log("Sink defined")
-        if (! s.isActive) {
-          // This means that the sink exists but it's not active.
-          // Therefore, some sort of error occurred (e.g. kafka topic was reset).
-          // Thus, we reset the TopicSource.
-          log("Sink reset")
-//          Thread.sleep(100)
-          reset()
-        }
-      case _ =>
-        log("No sink")
-    }
-
-    dataFrame match {
-      case None =>
-        log("No DataFrame")
-//        Thread.sleep(100)
-
-        if (! isReadOnly)
-          sink match {
-            case Some(s) =>
-              // sink is defined but df is not available, so we process some data
-              // s.processAllAvailable()
-
-            case _ =>
-              // sink is not defined. we first create it;
-              start()
-              // then check it out again
-//              sink match {
-//                case Some(s) => s.processAllAvailable() // defined, all good
-//                case _ => ; // not defined, kafka topic does not exist, updateDf will fail
-//              }
-          }
-        lastTimestamp = getTimestamp
-        updateDf()
-
-      case Some(df) =>
-        log("DataFrame defined")
-//        Thread.sleep(100)
-
-        val now = getTimestamp
-        log(s"Difference in timestamps: ${now - lastTimestamp}" )
-        if (now - lastTimestamp < conf.parquetSink.refreshTime /* in seconds */)
-          // The df is fresh enough to be served
-          df
-        else {
-          lastTimestamp = now
-          updateDf()
-        }
-    }
+    dataFrame = Some(newDataFrame)
+    newDataFrame
   }
 
   /**
@@ -297,10 +190,6 @@ extends TopicSource(conf)
         Try(Some(utils.getAvroSchemaForSubjectPretty(conf.subjectValueName))).getOrElse(None)
       case _ => None
     }
-  }
-
-  def log(message: String): Unit = {
-    println(s"${conf.kafkaTopic.topic}: $message")
   }
 }
 

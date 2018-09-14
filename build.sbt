@@ -197,4 +197,5 @@ assemblyOutputPath in assembly := file(s"$appsPath/${name.value}.jar")
 Project.inConfig(Test)(baseAssemblySettings)
 assemblyJarName in (Test, assembly) := s"${name.value}-test-${version.value}.jar"
 
-fork in ThisBuild in Test:= false
+fork in ThisBuild in Test := false
+//parallelExecution in Test := false

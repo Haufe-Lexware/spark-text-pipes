@@ -29,7 +29,7 @@ import scala.collection.parallel.immutable.ParMap
   * @param defaultRefreshTime The refresh time (in seconds) after which the parquet file is re-read
   *                           (if not specified in the [[Table]].
   */
-abstract class KafkaSources[T <: TopicSourceParquetSink]
+abstract class KafkaSources[T <: TopicSourceSink]
 (
   val kafkaConf: KafkaConf,
   val defaultRefreshTime: Int = 5, /* in seconds */
@@ -53,7 +53,7 @@ extends Source with SparkIO with SourceCollection[T]
       val input = TopicConf(
         kafkaConf,
         getTopicName(table),
-        ParquetSinkConf(table.transformation, table.refreshTime.getOrElse(defaultRefreshTime), 40)
+        SinkConf(table.transformation, table.refreshTime.getOrElse(defaultRefreshTime), 40)
       )
 
       table.name -> createTopic(input)
@@ -71,3 +71,5 @@ extends Source with SparkIO with SourceCollection[T]
     tables.foreach(t => println(t.name))
   }
 }
+
+abstract class TopicSourceSink(conf: TopicConf) extends TopicSource(conf) with SinkData

@@ -16,15 +16,34 @@
 package com.haufe.umantis.ds.sources.kafka
 
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
+import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.functions.{column, from_json, struct, to_json}
+import org.apache.spark.sql.types.StructType
 
 import scala.util.Try
 
 class TopicSourceKafkaSink(
                             conf: TopicConf
                           )
-  extends TopicSource(conf)
+  extends TopicSourceSink(conf)
 {
   private var startingOffset: String = "latest"
+
+  val outputTopicName: String = conf.kafkaTopicSink match {
+    case Some(tn) => tn.topic
+    case _ => s"${conf.kafkaTopic.topic}.output"
+  }
+
+  val options: Map[String, String] = {
+    conf.kafkaConf.schemaRegistryURL match {
+      case Some(url) => Map("schema.registry.url" -> url)
+      case _ => Map()
+    }
+  } ++ Map(
+    "kafka.bootstrap.servers" -> conf.kafkaConf.brokers
+  )
+
+  var outputSchema: StructType = _
 
   /**
     * Start the processing of this topic
@@ -36,29 +55,20 @@ class TopicSourceKafkaSink(
       case _ => ;
     }
 
-    val outputTopicName: String = conf.kafkaTopicSink match {
-      case Some(tn) => tn.topic
-      case _ => s"${conf.kafkaTopic.topic}.output"
-    }
-
-    val options = {
-      conf.kafkaConf.schemaRegistryURL match {
-        case Some(url) => Map("schema.registry.url" -> url)
-        case _ => Map()
-      }
-    } ++ Map(
-      "topic"-> outputTopicName,
-      "kafka.bootstrap.servers" -> conf.kafkaConf.brokers
-    )
-
     sink =
       try {
-        val s = getSource("earliest")//startingOffset)
+        val sourceDf = getSource("earliest")//startingOffset)
+
+        outputSchema = sourceDf.schema
+
+        val s = sourceDf
+          .select(to_json(struct(sourceDf.columns.map(column):_*)).alias("value"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
           .format("kafka")
           .options(options)
+          .option("topic", outputTopicName)
           .trigger(conf.kafkaTopic.trigger)
           .start()
 
@@ -111,7 +121,7 @@ class TopicSourceKafkaSink(
   }
 
   /**
-    * Returns a Map of the current dataframe size. It returns "fail" if not available.
+    * Returns a Map of the current DataFrame size. It returns "fail" if not available.
     * @return The status
     */
   def status(): Map[String, String] = {
@@ -123,5 +133,31 @@ class TopicSourceKafkaSink(
         }
       ).getOrElse("fail")
     )
+  }
+
+  def postProcessDf(df: DataFrame): DataFrame = {
+    df
+  }
+
+  def doUpdateDf(): DataFrame = {
+    import currentSparkSession.implicits._
+
+    val kafkaDf = currentSparkSession
+      .read
+      .format("kafka")
+      .options(options)
+      .option("startingOffsets", "earliest")
+      .option("subscribe", outputTopicName)
+      .load()
+      .byteArrayToString("value")
+      .withColumn("value", from_json($"value", outputSchema))
+      .expand("value")
+      .repartition(conf.parquetSink.numPartitions)
+
+    val newDataFrame = postProcessDf(kafkaDf)
+      .cache()
+
+    dataFrame = Some(newDataFrame)
+    newDataFrame
   }
 }

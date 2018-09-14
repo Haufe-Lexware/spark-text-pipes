@@ -22,9 +22,10 @@ import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{LongType, StructField, StructType}
+import org.scalatest.BeforeAndAfter
 
 class TopicSourceKafkaSinkSpec extends SparkSpec
-  with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture {
+  with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture with BeforeAndAfter {
   import currentSparkSession.implicits._
 
   val inputTopic = "test.kafka.sink.input"
@@ -33,7 +34,6 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
   val inputTopicName = new GenericTopicName(inputTopic, "value", None)
   val outputTopicName = new GenericTopicName(outputTopic, "value", None)
 
-  var payloadSchema: StructType = _
   val transformationFunction: DataFrame => DataFrame = {
     df =>
 
@@ -49,7 +49,7 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
       import org.apache.spark.sql.catalyst.encoders.RowEncoder
       implicit val encoder: ExpressionEncoder[Row] = RowEncoder(newSchema)
 
-      val df2 = df1
+      df1
         .mapPartitions(iter => {
           iter.map(r => {
             val s = r.getAs[Long]("num")
@@ -57,14 +57,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
             Row.fromSeq(r.toSeq :+ s)
           })
         })
-
-      payloadSchema = df2.schema
-
-      df2
-        .select(to_json(struct(df2.columns.map(column):_*)).alias("value"))
   }
 
-  val sinkConf = ParquetSinkConf(transformationFunction, 1, 4)
+  val sinkConf = SinkConf(transformationFunction, 1, 4)
   val conf = TopicConf(kafkaConf, inputTopicName, sinkConf, Some(outputTopicName))
   val ts = new TopicSourceKafkaSink(conf)
 
@@ -92,19 +87,9 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
     sleep(5)
 
     // let's read back the output topic using batch
-    val result = currentSparkSession
-      .read
-      .format("kafka")
-      .option("kafka.bootstrap.servers", kafkaBroker)
-      .option("subscribe", outputTopic)
-      .load()
-      .byteArrayToString("value")
-      .withColumn("value", from_json($"value", payloadSchema))
-      .expand("value")
+    val result = ts.data
       .select("num", "type", "triple", "mapPartCol")
       .sort("num")
-
-    result.show(false)
 
     val expectedResult = df
       .withColumn("triple", $"num" * 3)
@@ -118,6 +103,11 @@ class TopicSourceKafkaSinkSpec extends SparkSpec
 
     ts.stop()
     ts.delete()
+    deleteTopic(inputTopic)
+    deleteTopic(outputTopic)
+  }
+
+  after {
     deleteTopic(inputTopic)
     deleteTopic(outputTopic)
   }

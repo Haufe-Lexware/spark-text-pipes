@@ -15,17 +15,37 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+import com.haufe.umantis.ds.spark.SparkSessionWrapper
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, max, when}
 
-class TopicSourceEventSourcing(
-                               conf: TopicConf
-                              )
-  extends TopicSourceParquetSink(conf) {
+class TopicSourceParquetSinkEventSourcing(conf: TopicConf)
+  extends TopicSourceParquetSink(conf) with TopicSourceEventSourcingTrait {
 
+  override def preProcessDf(df: DataFrame): DataFrame =
+    super[TopicSourceEventSourcingTrait].preProcessDf(df)
+
+  override def postProcessDf(df: DataFrame): DataFrame =
+    super[TopicSourceEventSourcingTrait].postProcessDf(df)
+}
+
+class TopicSourceKafkaSinkEventSourcing(conf: TopicConf)
+  extends TopicSourceKafkaSink(conf) with TopicSourceEventSourcingTrait {
+
+  override def preProcessDf(df: DataFrame): DataFrame =
+    super[TopicSourceEventSourcingTrait].preProcessDf(df)
+
+  override def postProcessDf(df: DataFrame): DataFrame =
+    super[TopicSourceEventSourcingTrait].postProcessDf(df)
+}
+
+
+trait TopicSourceEventSourcingTrait extends SparkSessionWrapper {
   import currentSparkSession.implicits._
 
-  override def preprocessDf(df: DataFrame): DataFrame = {
+  def conf: TopicConf
+
+  def preProcessDf(df: DataFrame): DataFrame = {
     implicit class PreprocessHelper(df: DataFrame) {
       def uniqueKeyAndTimestamp(keyField: String): DataFrame = {
         conf.kafkaTopic.uniqueEntityKey match {
@@ -45,7 +65,7 @@ class TopicSourceEventSourcing(
         when(col(conf.kafkaTopic.payloadField).isNull, true).otherwise(false))
   }
 
-  override def postProcessParquet(df: DataFrame): DataFrame = {
+  def postProcessDf(df: DataFrame): DataFrame = {
     df
       .groupBy($"unique_entity_key")
       .agg(max($"producer_timestamp") as "producer_timestamp")

@@ -31,7 +31,7 @@ extends Source with SparkIO with DataFrameHelpers
 
   val kafkaSerializer = new KafkaDeserializer(conf)
 
-  def preprocessDf(df: DataFrame): DataFrame = {
+  def preProcessDf(df: DataFrame): DataFrame = {
     df
   }
 
@@ -56,7 +56,7 @@ extends Source with SparkIO with DataFrameHelpers
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", conf.kafkaConf.brokers)
-      .option("failOnDataLoss", "true")
+      .option("failOnDataLoss", "false") // disabled because Kafka can age out data
       .maybeSetSchemaRegistryURL
       .option("startingOffsets", startingOffset)
       .option("subscribe", conf.kafkaTopic.topic)
@@ -111,12 +111,9 @@ extends Source with SparkIO with DataFrameHelpers
       }
     }
 
-    val preprocessedDf = preprocessDf(deserializedDf)
+    val preprocessedDf = preProcessDf(deserializedDf)
       .expand("value")
-//      .expand(s"${conf.kafkaTopic.payloadField}.*")
 
     conf.parquetSink.transformationFunction(preprocessedDf)
   }
-
-  var sink: Option[StreamingQuery] = None
 }

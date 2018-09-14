@@ -104,22 +104,22 @@ class NoOpUniqueIdentityKeys {
 }
 
 /**
-  * Configuration for the Parquet Sink of a [[TopicSourceParquetSink]]
+  * Configuration for the Parquet Sink of a [[TopicSourceSink]]
   *
   * @param transformationFunction A transformation function to apply to the Streaming DataFrame
   * @param refreshTime The refresh time (in seconds) after which the parquet file is re-read.
   * @param numPartitions Number of partitions to use for the parquet sink
-  * @param filenamePrefix An optional filename to prefix to the parquet file sink
+  * @param filenamePrefix An optional filename to prefix to the file sink (e.g. checkpointing)
   */
-case class ParquetSinkConf(
-                            transformationFunction: DataFrame => DataFrame,
-                            refreshTime: Int,
-                            numPartitions: Int,
-                            filenamePrefix: Option[String] = None
-                          )
+case class SinkConf(
+                     transformationFunction: DataFrame => DataFrame,
+                     refreshTime: Int,
+                     numPartitions: Int,
+                     filenamePrefix: Option[String] = None
+                   )
 
 /**
-  * A configuration for a [[TopicSourceParquetSink]]
+  * A configuration for a [[TopicSourceSink]]
   *
   * @param kafkaConf The kafka configuration
   * @param kafkaTopic The kafka topic configuration
@@ -129,7 +129,7 @@ case class ParquetSinkConf(
 case class TopicConf(
                       kafkaConf: KafkaConf,
                       kafkaTopic: TopicName,
-                      parquetSink: ParquetSinkConf,
+                      parquetSink: SinkConf,
                       kafkaTopicSink: Option[TopicName] = None
                     )
   extends SparkIO
