@@ -145,6 +145,11 @@ class TopicSourceKafkaSink(
     val kafkaDf = currentSparkSession
       .read
       .format("kafka")
+
+      // Trying to solve kafka this server is not the leader for that topic partition
+      // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
+      .option("kafka.retries", 10)
+
       .options(options)
       .option("startingOffsets", "earliest")
       .option("subscribe", outputTopicName)
