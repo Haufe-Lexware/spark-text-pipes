@@ -20,6 +20,7 @@ package com.haufe.umantis.ds.sources.kafka
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructType
 
 import scala.collection.mutable
 import scala.util.Try
@@ -42,6 +43,8 @@ class TopicSourceParquetSink(
 extends TopicSourceSink(conf)
 {
   private var startingOffset: String = "latest"
+
+  var outputSchema: StructType = _
 
   private def checkParquetOnly(f: () => Unit): this.type = {
     if (isReadOnly) {
@@ -67,7 +70,11 @@ extends TopicSourceSink(conf)
 
       sink =
         try {
-          val s = getSource("earliest")//startingOffset)
+          val sourceDf = getSource("earliest")//startingOffset)
+
+          outputSchema = sourceDf.schema
+
+          val s = sourceDf
             .writeStream
             .outputMode("append")
             .option("checkpointLocation", conf.filePathCheckpoint)
@@ -169,10 +176,18 @@ extends TopicSourceSink(conf)
   def doUpdateDf(): DataFrame = {
     val fname = s"$dataRoot${conf.fileNameLeaf}.parquet"
 
-    val diskDf = currentSparkSession
-      .sql(s"select * from parquet.`$fname`")
-      .toDF()
-      .repartition(conf.parquetSink.numPartitions)
+    val diskDf = if (conf.sinkConf.useSqlToRead) {
+      currentSparkSession
+        .sql(s"select * from parquet.`$fname`")
+        .toDF()
+    } else {
+      currentSparkSession
+        .read
+        .schema(outputSchema)
+        .format("parquet")
+        .load(fname)
+    }
+      .repartition(conf.sinkConf.numPartitions)
 
     val newDataFrame = postProcessDf(diskDf)
       .cache()

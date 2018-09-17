@@ -29,6 +29,8 @@ class TopicSourceKafkaSink(
 {
   private var startingOffset: String = "latest"
 
+  var outputSchema: StructType = _
+
   val outputTopicName: String = conf.kafkaTopicSink match {
     case Some(tn) => tn.topic
     case _ => s"${conf.kafkaTopic.topic}.output"
@@ -42,8 +44,6 @@ class TopicSourceKafkaSink(
   } ++ Map(
     "kafka.bootstrap.servers" -> conf.kafkaConf.brokers
   )
-
-  var outputSchema: StructType = _
 
   /**
     * Start the processing of this topic
@@ -157,7 +157,7 @@ class TopicSourceKafkaSink(
       .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
-      .repartition(conf.parquetSink.numPartitions)
+      .repartition(conf.sinkConf.numPartitions)
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
