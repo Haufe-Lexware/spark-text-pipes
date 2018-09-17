@@ -146,9 +146,9 @@ class TopicSourceKafkaSink(
       .read
       .format("kafka")
 
-      // Trying to solve kafka this server is not the leader for that topic partition
+      // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
       // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-      .option("kafka.retries", 10)
+      .option("kafka.retries", 100)
 
       .options(options)
       .option("startingOffsets", "earliest")
