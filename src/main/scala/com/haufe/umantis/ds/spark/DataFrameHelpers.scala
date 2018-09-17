@@ -18,7 +18,6 @@ package com.haufe.umantis.ds.spark
 import org.apache.spark.ml.Pipeline
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -86,10 +85,6 @@ trait DataFrameHelpers extends SparkSessionWrapper {
         .map(oldName => replacements.getOrElse(oldName, oldName))
 
       df.toDF(newColNames:_*)
-    }
-
-    def deserializeAvro(column: String, deserializingFunction: UserDefinedFunction): DataFrame = {
-      df.withColumn(column, deserializingFunction(col(column)))
     }
 
     def toSeqOfMaps: Seq[Map[String, Any]] = {

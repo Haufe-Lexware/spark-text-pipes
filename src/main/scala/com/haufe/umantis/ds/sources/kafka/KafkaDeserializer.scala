@@ -66,12 +66,12 @@ class KafkaDeserializer(conf: TopicConf) {
     def deserialize(keyColumn: String, valueColumn: String): DataFrame = {
 
       val dfTmp = avroKeyDeserializer match {
-        case Some(des) => df.deserializeAvro(keyColumn, des)
+        case Some(des) => df.withColumn(keyColumn, des(col(keyColumn)))
         case _ => df.withColumn(keyColumn, col(keyColumn).cast("string"))
       }
 
       avroValueDeserializer match {
-        case Some(des) => dfTmp.deserializeAvro(valueColumn, des)
+        case Some(des) => dfTmp.withColumn(valueColumn, des(col(valueColumn)))
         case _ => dfTmp.withColumn(valueColumn, col(valueColumn).cast("string"))
       }
     }
