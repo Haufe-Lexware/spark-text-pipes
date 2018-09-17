@@ -104,7 +104,7 @@ class NoOpUniqueIdentityKeys {
 }
 
 /**
-  * Configuration for the Parquet Sink of a [[TopicSourceSink]]
+  * Configuration for the Sink of a [[TopicSourceSink]]
   *
   * @param transformationFunction A transformation function to apply to the Streaming DataFrame
   * @param refreshTime The refresh time (in seconds) after which the parquet file is re-read.
@@ -115,7 +115,8 @@ case class SinkConf(
                      transformationFunction: DataFrame => DataFrame,
                      refreshTime: Int,
                      numPartitions: Int,
-                     filenamePrefix: Option[String] = None
+                     filenamePrefix: Option[String] = None,
+                     useSqlToRead: Boolean = false
                    )
 
 /**
@@ -123,13 +124,13 @@ case class SinkConf(
   *
   * @param kafkaConf The kafka configuration
   * @param kafkaTopic The kafka topic configuration
-  * @param parquetSink The parquet sink configuration
+  * @param sinkConf The sink configuration
   * @param kafkaTopicSink The kafka sink configuration
   */
 case class TopicConf(
                       kafkaConf: KafkaConf,
                       kafkaTopic: TopicName,
-                      parquetSink: SinkConf,
+                      sinkConf: SinkConf,
                       kafkaTopicSink: Option[TopicName] = None
                     )
   extends SparkIO
@@ -137,7 +138,7 @@ case class TopicConf(
   def subjectKeyName: String = s"${kafkaTopic.topic}-key"
   def subjectValueName: String = s"${kafkaTopic.topic}-value"
 
-  def prefix: String = parquetSink.filenamePrefix match {case None => ""; case Some(s) => s"${s}_"}
+  def prefix: String = sinkConf.filenamePrefix match {case None => ""; case Some(s) => s"${s}_"}
   def fileNameLeaf: String = s"$kafkaParquetsDir$prefix${kafkaTopic.topic}"
   def fileNameLeafCheckpoint: String = s"${fileNameLeaf}_Checkpoint"
   def filePath: String = filePath(fileNameLeaf)

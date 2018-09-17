@@ -114,6 +114,6 @@ extends Source with SparkIO with DataFrameHelpers
     val preprocessedDf = preProcessDf(deserializedDf)
       .expand("value")
 
-    conf.parquetSink.transformationFunction(preprocessedDf)
+    conf.sinkConf.transformationFunction(preprocessedDf)
   }
 }

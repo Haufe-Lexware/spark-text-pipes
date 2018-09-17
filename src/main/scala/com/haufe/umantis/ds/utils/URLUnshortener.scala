@@ -113,8 +113,8 @@ class URLUnshortener(
             Right(httpBackend.doExpandURL(address))
           } catch {
             case e: Exception =>
-              URLUnshortener.LOGGER
-                .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
+//              URLUnshortener.LOGGER
+//                .warn("Problem while expanding {}", address: Any, e.getMessage: Any)
               Left(
                 CheckedURL(address.origUrl, address.finalUrl, connects=false, address.numRedirects)
               )

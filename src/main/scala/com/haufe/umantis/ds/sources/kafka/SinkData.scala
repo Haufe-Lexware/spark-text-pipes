@@ -111,7 +111,7 @@ trait SinkData extends Source {
 
         val now = getTimestamp
         log(s"Difference in timestamps: ${now - lastTimestamp}" )
-        if (now - lastTimestamp < conf.parquetSink.refreshTime /* in seconds */)
+        if (now - lastTimestamp < conf.sinkConf.refreshTime /* in seconds */)
         // The df is fresh enough to be served
           df
         else {
