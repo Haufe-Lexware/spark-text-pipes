@@ -147,38 +147,38 @@ object ColnamesAggregated {
 }
 
 trait Stg {
-  val TextCleaner: String = "TextCleaner"
-  val TextCleanerWithoutAcronyms: String = "TextCleanerWithoutAcronyms"
-  val LanguageDetector: String = "LanguageDetector"
-  val Tokenizer: String = "Tokenizer"
-  val StopWordsRemover: String = "StopWordsRemover"
-  val EmbeddingsModel: String = "EmbeddingsModel"
-  val OtherLanguageBooster: String = "OtherLanguageBooster"
-  val SimilarityScorer: String = "SimilarityScorer"
+  def TextCleaner: String = "TextCleaner"
+  def TextCleanerWithoutAcronyms: String = "TextCleanerWithoutAcronyms"
+  def LanguageDetector: String = "LanguageDetector"
+  def Tokenizer: String = "Tokenizer"
+  def StopWordsRemover: String = "StopWordsRemover"
+  def EmbeddingsModel: String = "EmbeddingsModel"
+  def OtherLanguageBooster: String = "OtherLanguageBooster"
+  def SimilarityScorer: String = "SimilarityScorer"
 
-  val WordMoverDistance: String = "WordMoverDistance"
-  val NormalizedBagOfWords: String = "NormalizedBagOfWords"
+  def WordMoverDistance: String = "WordMoverDistance"
+  def NormalizedBagOfWords: String = "NormalizedBagOfWords"
 
-  val CoordinatesFetcher: String = "CoordinatesFetcher"
-  val DistanceCalculator: String = "DistanceCalculator"
-  val DistanceScorer: String = "DistanceScorer"
+  def CoordinatesFetcher: String = "CoordinatesFetcher"
+  def DistanceCalculator: String = "DistanceCalculator"
+  def DistanceScorer: String = "DistanceScorer"
 
-  val Max: String = "ColumnAggregatorMax"
-  val Min: String = "ColumnAggregatorMin"
-  val Sum: String = "ColumnAggregatorSum"
-  val Mean: String = "ColumnAggregatorMean"
-  val LinearWeigher: String = "LinearWeigher"
+  def Max: String = "ColumnAggregatorMax"
+  def Min: String = "ColumnAggregatorMin"
+  def Sum: String = "ColumnAggregatorSum"
+  def Mean: String = "ColumnAggregatorMean"
+  def LinearWeigher: String = "LinearWeigher"
 
-  val URLAllLatin: String = "URLAllLatin"
-  val URLDetector: String = "URLDetector"
-  val URLValidator: String = "URLValidator"
-  val URLExpander: String = "URLExpander"
+  def URLAllLatin: String = "URLAllLatin"
+  def URLDetector: String = "URLDetector"
+  def URLValidator: String = "URLValidator"
+  def URLExpander: String = "URLExpander"
 }
 
 object Stg extends Stg
 
-object StandardPipeline {
-  val TextDataPreprocessing: Seq[String] =
+trait StandardPipeline {
+  def TextDataPreprocessing: Seq[String] =
     Seq(
       Stg.LanguageDetector,
       Stg.TextCleaner,
@@ -187,24 +187,26 @@ object StandardPipeline {
       Stg.EmbeddingsModel
     )
 
-  val TextDataScoringCentroid: Seq[String] =
+  def TextDataScoringCentroid: Seq[String] =
     Seq(
       Stg.SimilarityScorer,
       Stg.OtherLanguageBooster
     )
 
-  val DistanceScoring: Seq[String] = Seq(
+  def DistanceScoring: Seq[String] = Seq(
     Stg.DistanceCalculator,
     Stg.DistanceScorer
   )
 
-  val URLProcessing: Seq[String] = Seq(
+  def URLProcessing: Seq[String] = Seq(
     Stg.URLAllLatin,
     Stg.URLDetector,
 //    Stg.URLValidator,
     Stg.URLExpander
   )
 }
+
+object StandardPipeline extends StandardPipeline
 
 case class DsPipelineInput[T <: Colnames](cols: Seq[T], stages: Seq[String])
 object DsPipelineInput {
