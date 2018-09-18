@@ -75,18 +75,17 @@ trait TopicSourceEventSourcingTrait extends SparkSessionWrapper {
   }
 }
 
-object TopicSourceEventSourcing {
-  val mandatoryColumns: Seq[String] =
-    Seq("key", "unique_entity_key", "producer_timestamp", "timestamp", "kafka_value_is_null")
-}
 
 trait KafkaTopicDataFrameHelper {
+
+  val mandatoryColumns: Seq[String] =
+    Seq("key", "unique_entity_key", "producer_timestamp", "timestamp", "kafka_value_is_null")
 
   implicit class KafkaTopicDataFrameHelper(df: DataFrame) extends Serializable {
 
     @scala.annotation.varargs
     def selectKafkaColsAnd(cols: String*): DataFrame = {
-      df.select((TopicSourceEventSourcing.mandatoryColumns ++ cols.toSeq).map(col): _*)
+      df.select((mandatoryColumns ++ cols.toSeq).map(col): _*)
     }
   }
 }
