@@ -35,6 +35,7 @@ import scala.collection.JavaConverters._
 import scalaz.Memo
 import play.api.libs.json.Json
 
+import scala.collection.mutable
 import scala.util.Try
 
 /**
@@ -128,4 +129,21 @@ class ConfluentSparkAvroUtils(schemaRegistryURLs: String) extends Serializable {
       schemaAndType =>
         SchemaConverters.createConverterToSQL(schemaAndType._1, schemaAndType._2)
     }
+}
+
+/**
+  * Factory for [[ConfluentSparkAvroUtils]].
+  */
+object ConfluentSparkAvroUtils {
+
+  val avroRegistries: mutable.Map[String, ConfluentSparkAvroUtils] =
+    mutable.Map[String, ConfluentSparkAvroUtils]()
+
+  def apply(schemaRegistryURL: String): ConfluentSparkAvroUtils = {
+    avroRegistries
+      .getOrElseUpdate(
+        schemaRegistryURL,
+        new ConfluentSparkAvroUtils(schemaRegistryURL)
+      )
+  }
 }

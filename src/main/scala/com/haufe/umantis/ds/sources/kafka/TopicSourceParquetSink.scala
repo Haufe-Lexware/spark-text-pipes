@@ -17,12 +17,10 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
-import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
 
-import scala.collection.mutable
 import scala.util.Try
 
 
@@ -181,11 +179,18 @@ extends TopicSourceSink(conf)
         .sql(s"select * from parquet.`$fname`")
         .toDF()
     } else {
-      currentSparkSession
+      val df = currentSparkSession
         .read
         .schema(outputSchema)
         .format("parquet")
         .load(fname)
+
+      // if the df is empty (because no data has been written yet)
+      // we want to trigger an exception (caught in SinkData.updateDf()
+      // so that we can retry to read the df
+      df.head()
+
+      df
     }
       .repartition(conf.sinkConf.numPartitions)
 
@@ -207,24 +212,6 @@ extends TopicSourceSink(conf)
     }
   }
 }
-
-/**
-  * Factory for [[TopicSourceParquetSink]].
-  */
-object TopicSourceParquetSink {
-
-  val avroRegistries: mutable.Map[String, ConfluentSparkAvroUtils] =
-    mutable.Map[String, ConfluentSparkAvroUtils]()
-
-  def getAvroUtils(schemaRegistryURL: String): ConfluentSparkAvroUtils = {
-    avroRegistries
-      .getOrElseUpdate(
-        schemaRegistryURL,
-        new ConfluentSparkAvroUtils(schemaRegistryURL)
-      )
-  }
-}
-
 
 
 /**

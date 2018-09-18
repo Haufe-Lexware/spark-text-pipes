@@ -28,7 +28,7 @@ class KafkaDeserializer(conf: TopicConf) {
 
   lazy val avroUtils: Option[ConfluentSparkAvroUtils] =
     conf.kafkaConf.schemaRegistryURL match {
-      case Some(url) => Some(TopicSourceParquetSink.getAvroUtils(url))
+      case Some(url) => Some(ConfluentSparkAvroUtils(url))
       case _ => None
     }
 

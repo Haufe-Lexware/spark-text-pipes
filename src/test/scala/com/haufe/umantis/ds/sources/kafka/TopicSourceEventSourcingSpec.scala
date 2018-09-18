@@ -88,7 +88,7 @@ trait TopicSourceEventSourcingSpec
         ).pipeline
       )
   }
-  def sinkConf = SinkConf(transformationFunction, 1 /* seconds */, 4 /* num partitions */)
+  def sinkConf = SinkConf(transformationFunction, refreshTime = 1 /* seconds */, numPartitions = 4)
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
   def ts: TopicSourceSink
 

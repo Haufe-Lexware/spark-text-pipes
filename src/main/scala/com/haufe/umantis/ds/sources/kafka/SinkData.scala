@@ -46,22 +46,16 @@ trait SinkData extends Source {
       log("Updating DataFrame")
       //      Thread.sleep(100)
 
-      sink match {
-        case Some(_) =>
-          (1 to 30).foreach(retryNr => {
-            log(s"Reading Fresh Data Try # $retryNr")
+      (1 to 30).foreach(retryNr => {
+        log(s"Reading Fresh Data Try # $retryNr")
 
-            try{
-              return doUpdateDf()
-            } catch {
-              case _: AnalysisException =>
-                Thread.sleep(1000)
-            }
-          })
-        case _ =>
-          // in case isReadOnly == true
+        try{
           return doUpdateDf()
-      }
+        } catch {
+          case _: AnalysisException => Thread.sleep(1000)
+          case _: NoSuchElementException => Thread.sleep(1000)
+        }
+      })
 
       throw new KafkaTopicNotAvailableException(
         s"Kafka topic ${conf.kafkaTopic.topic} not ready!")
