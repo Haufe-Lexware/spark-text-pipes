@@ -1,13 +1,19 @@
 
-package com.haufe.umantis.ds.sources.kafka
+//package com.haufe.umantis.ds.sources.kafka
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.streaming.{GroupState, GroupStateTimeout, OutputMode}
 import org.apache.spark.sql.types.{StringType, StructType}
 
+import scala.collection.mutable
 
-object SSAggJoinTest {
+case class InputRow(owner: String, fruits: String)
+case class UserState(owner: String, fruits: mutable.Buffer[String])
+case class HasGrapes(owner: String, var timestamp: Long, var hasGrapes: Boolean)
 
+
+object SSAggJoinTest extends Serializable {
   val spark: SparkSession = SparkSession.builder().getOrCreate()
   import spark.implicits._
 
@@ -28,7 +34,7 @@ object SSAggJoinTest {
 
   var joinedDfSchema: StructType = _
 
-  val sourceDf: DataFrame = Seq(
+  def sourceDf: DataFrame = Seq(
     ("Brian", "apple"),
     ("Brian", "pear"),
     ("Brian", "melon"),
@@ -38,7 +44,14 @@ object SSAggJoinTest {
   )
     .toDF("owner", "fruits")
 
-  val additionalData: DataFrame = Seq(("Bob", "grapes")).toDF("owner", "fruits")
+  def additionalData: DataFrame = Seq(("Bob", "grapes")).toDF("owner", "fruits")
+
+  implicit class DFHelper(df: DataFrame) {
+    def expand(column: String): DataFrame = {
+      val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
+      df.select(wantedColumns.map(col): _*)
+    }
+  }
 
   def saveDfToKafka(df: DataFrame): Unit = {
     df
@@ -54,7 +67,7 @@ object SSAggJoinTest {
   saveDfToKafka(sourceDf)
 
   // kafka source
-  val farmDF: DataFrame = spark
+  def farmDF: DataFrame = spark
     .readStream
     .format("kafka")
     .option("kafka.bootstrap.servers", brokers)
@@ -67,11 +80,259 @@ object SSAggJoinTest {
 
   farmDF.printSchema()
 
-  implicit class DFHelper(df: DataFrame) {
-    def expand(column: String): DataFrame = {
-      val wantedColumns = df.columns.filter(_ != column) :+ s"$column.*"
-      df.select(wantedColumns.map(col): _*)
+  def tfmws2(): Unit = {
+
+    import spark.implicits._
+
+    def updateUserStateWithEvent(state: HasGrapes, input: InputRow): HasGrapes = {
+      state.hasGrapes = if (state.hasGrapes) true else input.fruits == "grapes"
+      state.timestamp = System.currentTimeMillis / 1000
+      state
     }
+
+    def updateState(user: String,
+                    inputs: Iterator[InputRow],
+                    oldState: GroupState[HasGrapes]): Iterator[HasGrapes] = {
+
+      val timestamp: Long = System.currentTimeMillis / 1000
+
+      var state: HasGrapes =
+        if (oldState.exists) oldState.get else HasGrapes(user, timestamp, hasGrapes = false)
+      // we simply specify an old date that we can compare against and
+      // immediately update based on the values in our data
+
+      for (input <- inputs) {
+        state = updateUserStateWithEvent(state, input)
+        oldState.update(state)
+      }
+      Iterator(state)
+    }
+
+    // aggregated df
+    val myFarmDF = farmDF
+      .select("owner", "fruits")
+      .as[InputRow]
+      .groupByKey(_.owner)
+      .flatMapGroupsWithState(OutputMode.Append(), GroupStateTimeout.NoTimeout())(updateState)
+      .toDF("own", "time", "hasGrapes")
+//      .writeStream
+//      .queryName("farmdf")
+//      .format("memory")
+//      .outputMode("append")
+//      .start()
+//
+//    val f = spark.sql("SELECT * FROM farmdf")
+//
+//    val fagg = f
+//      .groupBy($"own")
+//      .agg(max($"time") as "max_timestamp")
+//      .withColumnRenamed("own", "o")
+//      .join(f, expr("own = o AND time = max_timestamp"))
+
+    // joined df
+    val joinedDF = farmDF
+      .join(myFarmDF, expr("owner = own"))
+      .select($"owner", $"fruits", $"hasGrapes", $"time")
+
+    joinedDfSchema = joinedDF.schema
+
+    // stream sink
+    joinedDF
+      .select(to_json(struct(joinedDF.columns.map(column): _*)).alias("value"))
+      .writeStream
+      .outputMode("append")
+      .option("kafka.bootstrap.servers", brokers)
+      .option("checkpointLocation", "/data/kafka/checkpointSelf")
+      .option("topic", outputTopicSelf)
+      .format("kafka")
+      .start()
+  }
+
+  def tfmws(): Unit = {
+
+    import spark.implicits._
+
+    def updateUserStateWithEvent(state: HasGrapes, input: InputRow): HasGrapes = {
+      state.hasGrapes = if (state.hasGrapes) true else input.fruits == "grapes"
+      state.timestamp = System.currentTimeMillis / 1000
+      state
+    }
+
+    def updateState(user: String,
+                    inputs: Iterator[InputRow],
+                    oldState: GroupState[HasGrapes]): Iterator[HasGrapes] = {
+
+      val timestamp: Long = System.currentTimeMillis / 1000
+
+      var state: HasGrapes =
+        if (oldState.exists) oldState.get else HasGrapes(user, timestamp, hasGrapes = false)
+      // we simply specify an old date that we can compare against and
+      // immediately update based on the values in our data
+
+      for (input <- inputs) {
+        state = updateUserStateWithEvent(state, input)
+        oldState.update(state)
+      }
+      Iterator(state)
+    }
+
+    // aggregated df
+    val myFarmDF = farmDF
+      .select("owner", "fruits")
+      .as[InputRow]
+      .groupByKey(_.owner)
+      .flatMapGroupsWithState(OutputMode.Append(), GroupStateTimeout.NoTimeout())(updateState)
+      .toDF("own", "timestamp", "hasGrapes")
+      .writeStream
+      .queryName("farmdf")
+      .format("memory")
+      .outputMode("append")
+      .start()
+
+    val f = spark.sql("SELECT * FROM farmdf")
+
+    val fagg = f
+      .groupBy($"own")
+      .agg(max($"timestamp") as "max_timestamp")
+      .withColumnRenamed("own", "o")
+      .join(f, expr("own = o AND timestamp = max_timestamp"))
+
+    // joined df
+    val joinedDF = farmDF
+      .join(fagg, expr("owner = own"))
+      .select("owner", "fruits", "hasGrapes")
+
+    joinedDfSchema = joinedDF.schema
+
+    // stream sink
+    joinedDF
+      .select(to_json(struct(joinedDF.columns.map(column): _*)).alias("value"))
+      .writeStream
+      .outputMode("append")
+      .option("kafka.bootstrap.servers", brokers)
+      .option("checkpointLocation", "/data/kafka/checkpointSelf")
+      .option("topic", outputTopicSelf)
+      .format("kafka")
+      .start()
+  }
+
+  def testSelfFlatGroupWithState(): Unit = {
+
+    import spark.implicits._
+
+    def updateUserStateWithEvent(state: UserState, input: InputRow): UserState = {
+      state.fruits.append(input.fruits)
+      state
+    }
+
+    def updateState(user: String,
+                    inputs: Iterator[InputRow],
+                    oldState: GroupState[UserState]): Iterator[UserState] = {
+      var state: UserState =
+        if (oldState.exists) oldState.get else UserState(user, mutable.Buffer[String]())
+      // we simply specify an old date that we can compare against and
+      // immediately update based on the values in our data
+
+      for (input <- inputs) {
+        state = updateUserStateWithEvent(state, input)
+        oldState.update(state)
+      }
+      Iterator(state)
+    }
+
+    // aggregated df
+    val myFarmDF = farmDF
+      .select("owner", "fruits")
+      .as[InputRow]
+      .groupByKey(_.owner)
+      .flatMapGroupsWithState(OutputMode.Append(), GroupStateTimeout.NoTimeout())(updateState)
+      .toDF("own", "fr")
+//      .writeStream
+//      .queryName("farmdf")
+//      .format("memory")
+//      .outputMode("append")
+//      .start()
+//
+//    spark.sql("SELECT * FROM farmdf")
+
+    // joined df
+    val joinedDF = farmDF
+      .join(myFarmDF, expr("owner = own"))
+      .select("owner", "fruits", "fr")
+
+    joinedDfSchema = joinedDF.schema
+
+    // stream sink
+    joinedDF
+      .select(to_json(struct(joinedDF.columns.map(column): _*)).alias("value"))
+      .writeStream
+      .outputMode("append")
+      .option("kafka.bootstrap.servers", brokers)
+      .option("checkpointLocation", "/data/kafka/checkpointSelf")
+      .option("topic", outputTopicSelf)
+      .format("kafka")
+      .start()
+  }
+
+  def testSelfGroupWithState(): Unit = {
+
+    import spark.implicits._
+
+    def updateUserStateWithEvent(state: HasGrapes, input: InputRow): HasGrapes = {
+      state.hasGrapes = if (state.hasGrapes) true else input.fruits == "grapes"
+      state.timestamp = System.currentTimeMillis / 1000
+      state
+    }
+
+    def updateAcrossEvents(user: String,
+                           inputs: Iterator[InputRow],
+                           oldState: GroupState[HasGrapes]): HasGrapes = {
+      val timestamp: Long = System.currentTimeMillis / 1000
+
+      var state: HasGrapes =
+        if (oldState.exists) oldState.get else HasGrapes(user, timestamp, false)
+      // we simply specify an old date that we can compare against and
+      // immediately update based on the values in our data
+
+      for (input <- inputs) {
+        state = updateUserStateWithEvent(state, input)
+        oldState.update(state)
+      }
+      state
+    }
+
+    // aggregated df
+    val myFarmDF = farmDF
+      .select("owner", "fruits")
+      .as[InputRow]
+      .groupByKey(_.owner)
+      .mapGroupsWithState(GroupStateTimeout.NoTimeout())(updateAcrossEvents)
+      .toDF("own", "hasGrapes")
+      .writeStream
+      .queryName("farmdf")
+      .format("memory")
+      .outputMode("update")
+      .start()
+
+    val f: DataFrame = spark.sql("SELECT * FROM farmdf")
+
+    // joined df
+    val joinedDF = farmDF
+      .join(f, expr("owner = own"))
+      .select("owner", "fruits", "hasGrapes")
+
+    joinedDfSchema = joinedDF.schema
+
+    // stream sink
+    joinedDF
+      .select(to_json(struct(joinedDF.columns.map(column): _*)).alias("value"))
+      .writeStream
+      .outputMode("append")
+      .option("kafka.bootstrap.servers", brokers)
+      .option("checkpointLocation", "/data/kafka/checkpointSelf")
+      .option("topic", outputTopicSelf)
+      .format("kafka")
+      .start()
   }
 
   def testSelfAggJoinFail(): Unit = {
