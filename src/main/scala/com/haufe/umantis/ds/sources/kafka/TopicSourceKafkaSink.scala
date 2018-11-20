@@ -62,7 +62,9 @@ class TopicSourceKafkaSink(
         outputSchema = sourceDf.schema
 
         val s = sourceDf
+          .alsoPrintSchema(Some("TopicSourceKafkaSink before JSON serialization"))
           .select(to_json(struct(sourceDf.columns.map(column):_*)).alias("value"))
+          .alsoPrintSchema(Some("TopicSourceKafkaSink after JSON serialization"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
