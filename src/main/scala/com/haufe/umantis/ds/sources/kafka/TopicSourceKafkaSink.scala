@@ -159,6 +159,8 @@ class TopicSourceKafkaSink(
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
 
+    kafkaDf.show()
+
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
 
