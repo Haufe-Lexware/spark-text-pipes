@@ -52,7 +52,7 @@ extends Source with SparkIO with DataFrameHelpers
       }
     }
 
-    val rawDf = currentSparkSession
+    val rawDfTmp = currentSparkSession
       .readStream
       .format("kafka")
       .option("kafka.bootstrap.servers", conf.kafkaConf.brokers)
@@ -61,10 +61,18 @@ extends Source with SparkIO with DataFrameHelpers
       .option("startingOffsets", startingOffset)
       .option("subscribe", conf.kafkaTopic.topic)
       .load()
+
+    val rawDf = rawDfTmp
       .deserialize("key", "value")
 
     val deserializedDf: DataFrame = {
       if (kafkaSerializer.isValueAvro) {
+        println("rawDfTmp")
+        rawDfTmp.show()
+
+        println("rawDf")
+        rawDf.show()
+
         // Payload serialized using Avro, Spark will infer the schema
         rawDf
 
