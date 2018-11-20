@@ -93,6 +93,7 @@ trait TopicSourceEventSourcingSpec
   def ts: TopicSourceSink
 
   def sendEvents(events: String): String = {
+    println($"sending events $events")
     sendEvents(keyschema, schema, topic, events)
   }
 
