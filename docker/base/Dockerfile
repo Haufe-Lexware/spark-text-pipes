@@ -13,7 +13,7 @@ ADD https://raw.githubusercontent.com/guilhem/apt-get-install/master/apt-get-ins
 RUN chmod +x /usr/bin/apt-get-install
 
 RUN apt-get-install -y curl \
-      && chmod +x *.sh \
+#      && chmod +x *.sh \
       && wget http://apache.mirror.iphh.net/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
       && tar -xvzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
       && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} spark \
