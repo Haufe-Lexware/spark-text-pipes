@@ -44,6 +44,31 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df.select(flattenSchema(df.schema, prefix):_*)
     }
 
+    def alsoShow(
+                  numRows: Int = 20,
+                  truncate: Int = 0,
+                  vertical: Boolean = false,
+                  header: Option[String] = None
+                ): DataFrame = {
+      header match {
+        case Some(s) => println(s"\n$s")
+        case _ =>
+      }
+
+      df.show(numRows, truncate, vertical)
+      df
+    }
+
+    def alsoPrintSchema(header: Option[String]): DataFrame = {
+      header match {
+        case Some(s) => println(s"\n$s")
+        case _ =>
+      }
+
+      df.printSchema()
+      df
+    }
+
     /**
       * Expands a column while keeping all the other ones.
       * @param column The column to expand

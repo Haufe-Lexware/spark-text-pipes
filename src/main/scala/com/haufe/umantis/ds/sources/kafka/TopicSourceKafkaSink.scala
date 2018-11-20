@@ -62,7 +62,9 @@ class TopicSourceKafkaSink(
         outputSchema = sourceDf.schema
 
         val s = sourceDf
+          .alsoPrintSchema(Some("TopicSourceKafkaSink before JSON serialization"))
           .select(to_json(struct(sourceDf.columns.map(column):_*)).alias("value"))
+          .alsoPrintSchema(Some("TopicSourceKafkaSink after JSON serialization"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
@@ -148,7 +150,7 @@ class TopicSourceKafkaSink(
 
       // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
       // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-      .option("kafka.retries", 100)
+//      .option("kafka.retries", 100)
 
       .options(options)
       .option("startingOffsets", "earliest")
@@ -158,6 +160,9 @@ class TopicSourceKafkaSink(
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
+
+    println("before postprocessdf")
+    kafkaDf.show()
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()

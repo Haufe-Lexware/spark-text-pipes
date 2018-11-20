@@ -61,7 +61,9 @@ extends Source with SparkIO with DataFrameHelpers
       .option("startingOffsets", startingOffset)
       .option("subscribe", conf.kafkaTopic.topic)
       .load()
+      .alsoPrintSchema(Some("TopicSource raw"))
       .deserialize("key", "value")
+      .alsoPrintSchema(Some("TopicSource after deserialization"))
 
     val deserializedDf: DataFrame = {
       if (kafkaSerializer.isValueAvro) {
