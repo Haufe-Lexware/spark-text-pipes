@@ -148,7 +148,7 @@ class TopicSourceKafkaSink(
 
       // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
       // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-      .option("kafka.retries", 100)
+//      .option("kafka.retries", 100)
 
       .options(options)
       .option("startingOffsets", "earliest")
@@ -159,6 +159,7 @@ class TopicSourceKafkaSink(
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
 
+    println("before postprocessdf")
     kafkaDf.show()
 
     val newDataFrame = postProcessDf(kafkaDf)
