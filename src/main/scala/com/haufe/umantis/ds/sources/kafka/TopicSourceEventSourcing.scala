@@ -15,7 +15,7 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
-import com.haufe.umantis.ds.spark.SparkSessionWrapper
+import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkSessionWrapper}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, max, when}
 
@@ -40,7 +40,7 @@ class TopicSourceKafkaSinkEventSourcing(conf: TopicConf)
 }
 
 
-trait TopicSourceEventSourcingTrait extends SparkSessionWrapper {
+trait TopicSourceEventSourcingTrait extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
   def conf: TopicConf
@@ -67,11 +67,15 @@ trait TopicSourceEventSourcingTrait extends SparkSessionWrapper {
 
   def postProcessDf(df: DataFrame): DataFrame = {
     df
+      .alsoPrintSchema(Some("TopicSourceEventSourcingTrait before postProcessDf"))
+      .alsoShow()
       .groupBy($"unique_entity_key")
       .agg(max($"producer_timestamp") as "producer_timestamp")
       .join(df, Seq("unique_entity_key", "producer_timestamp"))
       .where($"kafka_value_is_null" === false)
       .drop("kafka_value_is_null", "unique_entity_key", "producer_timestamp")
+      .alsoPrintSchema(Some("TopicSourceEventSourcingTrait after postProcessDf"))
+      .alsoShow()
   }
 }
 
