@@ -93,14 +93,18 @@ trait TopicSourceEventSourcingSpec
   def ts: TopicSourceSink
 
   def sendEvents(events: String): String = {
-    println($"sending events $events")
+    println($"sending events:\n$events")
     sendEvents(keyschema, schema, topic, events)
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
 
   def currentDf: DataFrame = ts.data.sort($"f1")
-  def show(): Unit = currentDf.show(20, 100)
+  def show(): Unit = {
+    currentDf.columns.foreach(c => println(c))
+    currentDf.select("key").show()
+    currentDf.show(20, 100)
+  }
   def values: DataFrame = currentDf.select("f1", "f2")
 
   def doTest(): Unit = {
