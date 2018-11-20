@@ -102,7 +102,7 @@ trait TopicSourceEventSourcingSpec
   def currentDf: DataFrame = ts.data.sort($"f1")
   def show(): Unit = {
     currentDf.columns.foreach(c => println(c))
-    currentDf.select("key").show()
+//    currentDf.select("key").show()
     currentDf.show(20, 100)
   }
   def values: DataFrame = currentDf.select("f1", "f2")
