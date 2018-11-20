@@ -21,10 +21,11 @@ dependencyOverrides ++= Seq(
 
 
 lazy val sparkDependencies = {
-  val sparkVer = "2.3.1"
+  val sparkVer = "2.4.0"
   Seq(
     "org.apache.spark" %% "spark-core" % sparkVer,
     "org.apache.spark" %% "spark-sql" % sparkVer,
+    "org.apache.spark" %% "spark-avro" % sparkVer,
     "org.apache.spark" %% "spark-streaming" % sparkVer,
     "org.apache.spark" %% "spark-mllib" % sparkVer,
     "org.apache.spark" %% "spark-sql-kafka-0-10" % sparkVer
@@ -151,7 +152,10 @@ libraryDependencies += "org.apache.kafka" % "kafka-clients" % "1.1.0"
 libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
 
 // Cassandra
-libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.0-s_2.11"
+//libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.2-s_2.11"
+// https://mvnrepository.com/artifact/com.datastax.spark/spark-cassandra-connector
+libraryDependencies += "com.datastax.spark" %% "spark-cassandra-connector" % "2.3.2"
+
 
 // icu4j
 // https://mvnrepository.com/artifact/com.ibm.icu/icu4j
