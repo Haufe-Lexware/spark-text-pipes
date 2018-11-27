@@ -165,7 +165,7 @@ class TopicSourceKafkaSink(
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
-      .alsoShow(20, 15)
+      .alsoShow(20, 12)
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
