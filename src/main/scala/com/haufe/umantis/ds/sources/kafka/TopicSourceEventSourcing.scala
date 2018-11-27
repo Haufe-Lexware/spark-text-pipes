@@ -68,14 +68,14 @@ trait TopicSourceEventSourcingTrait extends SparkSessionWrapper with DataFrameHe
   def postProcessDf(df: DataFrame): DataFrame = {
     df
       .alsoPrintSchema(Some("TopicSourceEventSourcingTrait before postProcessDf"))
-      .alsoShow(20, 20)
+      .alsoShow(20, 15)
       .groupBy($"unique_entity_key")
       .agg(max($"producer_timestamp") as "producer_timestamp")
       .join(df, Seq("unique_entity_key", "producer_timestamp"))
       .where($"kafka_value_is_null" === false)
       .drop("kafka_value_is_null", "unique_entity_key", "producer_timestamp")
       .alsoPrintSchema(Some("TopicSourceEventSourcingTrait after postProcessDf"))
-      .alsoShow(20, 20)
+      .alsoShow(20, 15)
   }
 }
 
