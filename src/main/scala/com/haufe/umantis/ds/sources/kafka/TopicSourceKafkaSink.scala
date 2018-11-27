@@ -161,6 +161,8 @@ class TopicSourceKafkaSink(
       .option("startingOffsets", "earliest")
       .option("subscribe", outputTopicName)
       .load()
+      .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
+      .alsoShow(20, 12)
       .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
