@@ -70,7 +70,7 @@ class TopicSourceKafkaSink(
           .select(
             to_json(struct(sourceDf.columns.map(column):_*)).alias("value")
           )
-          .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+          //.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
           .alsoPrintSchema(Some("TopicSourceKafkaSink after JSON serialization"))
           .writeStream
           .outputMode("append")
