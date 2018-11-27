@@ -63,9 +63,12 @@ class TopicSourceKafkaSink(
 
         val s = sourceDf
           .alsoPrintSchema(Some("TopicSourceKafkaSink before JSON serialization"))
+//          .select(
+//            to_json(column("key")).alias("key"),
+//            to_json(struct(sourceDf.columns.filter(_ != "key").map(column):_*)).alias("value")
+//          )
           .select(
-            to_json(column("key")).alias("key"),
-            to_json(struct(sourceDf.columns.filter(_ != "key").map(column):_*)).alias("value")
+            to_json(struct(sourceDf.columns.map(column):_*)).alias("value")
           )
           .selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
           .alsoPrintSchema(Some("TopicSourceKafkaSink after JSON serialization"))
