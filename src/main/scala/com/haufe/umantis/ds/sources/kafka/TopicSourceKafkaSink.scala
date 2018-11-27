@@ -163,6 +163,7 @@ class TopicSourceKafkaSink(
       .load()
       .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
       .alsoShow(20, 12)
+      .select("value")
       .withColumn("value", $"value".cast("string"))
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
