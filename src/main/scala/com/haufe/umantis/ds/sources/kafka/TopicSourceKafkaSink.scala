@@ -148,6 +148,7 @@ class TopicSourceKafkaSink(
   def doUpdateDf(): DataFrame = {
     import currentSparkSession.implicits._
 
+    println("TopicSourceKafkaSink read before postprocessdf")
     val kafkaDf = currentSparkSession
       .read
       .format("kafka")
@@ -164,9 +165,7 @@ class TopicSourceKafkaSink(
       .withColumn("value", from_json($"value", outputSchema))
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
-
-    println("before postprocessdf")
-    kafkaDf.show()
+      .alsoShow(20, 15)
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
