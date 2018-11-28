@@ -99,9 +99,18 @@ trait TopicSourceEventSourcingSpec
     toDF(events)
       .write
       .format("kafka")
-      .option("schema.registry.url", avroSchemaRegistry)
+//      .option("schema.registry.url", avroSchemaRegistry)
       .option("kafka.bootstrap.servers", kafkaBroker)
       .option("topic", topic)
+      .save()
+
+    currentSparkSession
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("topic", topic)
+      .load()
+      .show()
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
