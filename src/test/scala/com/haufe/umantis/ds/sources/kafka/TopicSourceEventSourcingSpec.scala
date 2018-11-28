@@ -25,28 +25,28 @@ import org.scalatest.Matchers._
 
 import scala.sys.process._
 
-trait KafkaTest extends SparkIO {
+trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
   val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
 
-  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
-    val stream: java.io.InputStream =
-      new java.io.ByteArrayInputStream(
-        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-      s"--brokers $kafkaBroker",
-      s"--registry $avroSchemaRegistry",
-      s"--keyschema $keyschema",
-      s"--schema $schema",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    command #< stream !!
-  }
+//  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
+//    val stream: java.io.InputStream =
+//      new java.io.ByteArrayInputStream(
+//        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
+//
+//    val command = Seq(
+//      "/usr/bin/python3",
+//      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
+//      s"--brokers $kafkaBroker",
+//      s"--registry $avroSchemaRegistry",
+//      s"--keyschema $keyschema",
+//      s"--schema $schema",
+//      s"--topic $topic"
+//    )
+//      .mkString(" ")
+//
+//    command #< stream !!
+//  }
 
   def deleteTopic(topic: String): Unit = {
     val command = Seq(
@@ -66,7 +66,7 @@ trait KafkaTest extends SparkIO {
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with KafkaTest with TopicSourceEventSourcingSpecFixture {
+    with SparkIO with KafkaTest {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -93,9 +93,15 @@ trait TopicSourceEventSourcingSpec
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
   def ts: TopicSourceSink
 
-  def sendEvents(events: String): String = {
+  def sendEvents(events: String): Unit = {
     println($"sending events:\n$events")
-    sendEvents(keyschema, schema, topic, events)
+//    sendEvents(keyschema, schema, topic, events)
+    toDF(events)
+      .write
+      .format("kafka")
+      .option("schema.registry.url", avroSchemaRegistry)
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("topic", topic)
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
