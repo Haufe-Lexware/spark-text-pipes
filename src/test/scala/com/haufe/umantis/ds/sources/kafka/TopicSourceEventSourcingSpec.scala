@@ -134,23 +134,23 @@ trait TopicSourceEventSourcingSpec
   def ts: TopicSourceSink
 
   def sendEvents(events: String): Unit = {
-    println($"sending events to ${conf.kafkaTopic.topic}:\n$events")
+    println($"sending events to $topic:\n$events")
 //    sendEvents(keyschema, schema, topic, events)
     toDF(events)
       .write
       .format("kafka")
 //      .option("schema.registry.url", avroSchemaRegistry)
       .option("kafka.bootstrap.servers", kafkaBroker)
-      .option("topic", conf.kafkaTopic.topic)
+      .option("topic", topic)
       .save()
 
-    currentSparkSession
-      .read
-      .format("kafka")
-      .option("kafka.bootstrap.servers", kafkaBroker)
-      .option("topic", conf.kafkaTopic.topic)
-      .load()
-      .show()
+//    currentSparkSession
+//      .read
+//      .format("kafka")
+//      .option("kafka.bootstrap.servers", kafkaBroker)
+//      .option("topic", topic)
+//      .load()
+//      .show()
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
