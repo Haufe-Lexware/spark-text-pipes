@@ -113,6 +113,8 @@ trait TopicSourceEventSourcingSpec
     // ensure the topic does not exist
     deleteTopic(topic)
 
+    toDF(createABC)
+
     // entity creation
     sendEvents(createABC)
     sleep(2)
