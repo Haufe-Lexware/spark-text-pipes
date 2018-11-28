@@ -114,8 +114,6 @@ trait TopicSourceEventSourcingSpec
     deleteTopic(topic)
 
     // entity creation
-    println("testing json")
-    toDF(createABC).show()
     sendEvents(createABC)
     sleep(2)
     ts.reset()
@@ -209,8 +207,10 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
       .toDF("key", "value")
       .expand_json("key")
       .expand_json("value")
-//      .withColumn("key", to_avro($"key"))
-//      .withColumn("value", to_avro($"value"))
+      .alsoShow()
+      .withColumn("key", to_avro($"key"))
+      .withColumn("value", to_avro($"value"))
+      .alsoShow()
   }
 
   val createABC: String =
