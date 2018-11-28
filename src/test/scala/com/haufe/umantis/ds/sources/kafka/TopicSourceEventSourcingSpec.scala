@@ -144,13 +144,14 @@ trait TopicSourceEventSourcingSpec
       .option("topic", topic)
       .save()
 
-//    currentSparkSession
-//      .read
-//      .format("kafka")
-//      .option("kafka.bootstrap.servers", kafkaBroker)
-//      .option("topic", topic)
-//      .load()
-//      .show()
+    currentSparkSession
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("startingOffsets", "earliest")
+      .option("subscribe", topic)
+      .load()
+      .show()
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
