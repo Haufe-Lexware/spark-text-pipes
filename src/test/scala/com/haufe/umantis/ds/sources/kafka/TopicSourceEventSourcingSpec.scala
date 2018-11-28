@@ -16,13 +16,14 @@
 package com.haufe.umantis.ds.sources.kafka
 
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
-import com.haufe.umantis.ds.spark.{SparkIO, SparkSessionWrapper}
+import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.avro._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
 
-import sys.process._
+import scala.sys.process._
 
 trait KafkaTest extends SparkIO {
 
@@ -113,6 +114,8 @@ trait TopicSourceEventSourcingSpec
     deleteTopic(topic)
 
     // entity creation
+    println("testing json")
+    toDF(createABC).show()
     sendEvents(createABC)
     sleep(2)
     ts.reset()
@@ -181,7 +184,7 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
 }
 
 
-trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper {
+trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
   def fixture(data: Seq[(String, Int)]): DataFrame =
@@ -197,6 +200,18 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper {
 
   val keyschema = """{"name":"key","type":"record","fields":[{"name":"service_name","type":"string"},{"name":"tenant_id","type":"string"},{"name":"identity_id","type":"string"},{"name":"entity_id","type":"string"},{"name":"timestamp","type":"long","logicalType":"timestamp-millis"}]}"""
   val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
+
+  def toDF(strDf: String): DataFrame = {
+    strDf
+      .split('\n').toSeq
+      .map(_.split('|'))
+      .map { case Array(f1, f2) => (f1, f2) }
+      .toDF("key", "value")
+      .expand_json("key")
+      .expand_json("value")
+//      .withColumn("key", to_avro($"key"))
+//      .withColumn("value", to_avro($"value"))
+  }
 
   val createABC: String =
     """
