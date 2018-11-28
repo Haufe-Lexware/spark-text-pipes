@@ -30,44 +30,44 @@ import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
 
 import scala.sys.process._
 
-//trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
-//
-//  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
+trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
-//  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
-//    val stream: java.io.InputStream =
-//      new java.io.ByteArrayInputStream(
-//        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-//
-//    val command = Seq(
-//      "/usr/bin/python3",
-//      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-//      s"--brokers $kafkaBroker",
-//      s"--registry $avroSchemaRegistry",
-//      s"--keyschema $keyschema",
-//      s"--schema $schema",
-//      s"--topic $topic"
-//    )
-//      .mkString(" ")
-//
-//    command #< stream !!
-//  }
+  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
 
-//  def deleteTopic(topic: String): Unit = {
-//    val command = Seq(
-//      "/usr/bin/python3",
-//      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-//      s"--brokers $kafkaBroker",
-//      s"--zookeeper $zookeeper",
-//      s"--topic $topic"
-//    )
-//      .mkString(" ")
-//
-//    println(command)
-//
-//    command !!
-//  }
-//}
+  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
+    val stream: java.io.InputStream =
+      new java.io.ByteArrayInputStream(
+        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
+
+    val command = Seq(
+      "/usr/bin/python3",
+      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
+      s"--brokers $kafkaBroker",
+      s"--registry $avroSchemaRegistry",
+      s"--keyschema $keyschema",
+      s"--schema $schema",
+      s"--topic $topic"
+    )
+      .mkString(" ")
+
+    command #< stream !!
+  }
+
+  def deleteTopic(topic: String): Unit = {
+    val command = Seq(
+      "/usr/bin/python3",
+      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
+      s"--brokers $kafkaBroker",
+      s"--zookeeper $zookeeper",
+      s"--topic $topic"
+    )
+      .mkString(" ")
+
+    println(command)
+
+    command !!
+  }
+}
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
