@@ -15,6 +15,7 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
@@ -22,6 +23,10 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.avro._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
+import kafka.admin.AdminUtils
+import kafka.utils.ZkUtils
+import kafka.zk.{AdminZkClient, KafkaZkClient}
+import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
 
 import scala.sys.process._
 
@@ -48,20 +53,20 @@ trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 //    command #< stream !!
 //  }
 
-  def deleteTopic(topic: String): Unit = {
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-      s"--brokers $kafkaBroker",
-      s"--zookeeper $zookeeper",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    println(command)
-
-    command !!
-  }
+//  def deleteTopic(topic: String): Unit = {
+//    val command = Seq(
+//      "/usr/bin/python3",
+//      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
+//      s"--brokers $kafkaBroker",
+//      s"--zookeeper $zookeeper",
+//      s"--topic $topic"
+//    )
+//      .mkString(" ")
+//
+//    println(command)
+//
+//    command !!
+//  }
 }
 
 trait TopicSourceEventSourcingSpec
@@ -70,6 +75,41 @@ trait TopicSourceEventSourcingSpec
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
+
+//  val kafkaZkClient: KafkaZkClient = {
+//    import org.apache.kafka.common.utils.Time
+//    KafkaZkClient(
+//      zookeeper,
+//      isSecure=false,
+//      sessionTimeoutMs=200000,
+//      connectionTimeoutMs=15000,
+//      maxInFlightRequests=10,
+//      time=Time.SYSTEM,
+//      metricGroup="myGroup",
+//      metricType="myType")
+//  }
+
+//  val adminZkClient: AdminZkClient = AdminZkClient(kafkaZkClient)
+
+//  val a = org.apache.kafka.clients.admin.AdminClient.create()
+
+  val adminClient: AdminClient = {
+    val props = new java.util.Properties()
+    props.setProperty("bootstrap.servers", kafkaBroker)
+    org.apache.kafka.clients.admin.AdminClient.create(props)
+  }
+
+
+  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
+  def deleteTopic(topic: String): Unit = {
+//    kafkaZkClient.deleteTopic
+//    val partitions = zkUtils.getPartitionsForTopics(Seq(topic))(topic).size
+//    AdminUtils.deleteTopic(zkUtils, topic)
+    import collection.JavaConverters._
+    adminClient.deleteTopics(List(topic).asJavaCollection).all().get()
+//    kafka.zk.AdminZkClient
+//    verifyTopicDeletionWithRetries(zkUtils, topic, partitions, List(this.server))
+  }
 
   def topic: String
 
