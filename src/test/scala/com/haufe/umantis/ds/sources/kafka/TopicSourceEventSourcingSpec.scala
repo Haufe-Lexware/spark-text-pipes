@@ -139,7 +139,7 @@ trait TopicSourceEventSourcingSpec
     toDF(events)
       .write
       .format("kafka")
-//      .option("schema.registry.url", avroSchemaRegistry)
+      .option("schema.registry.url", avroSchemaRegistry)
       .option("kafka.bootstrap.servers", kafkaBroker)
       .option("topic", topic)
       .save()
@@ -262,12 +262,12 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-//      .expand_json("key")
-//      .expand_json("value")
-//      .alsoShow()
-//      .withColumn("key", to_avro($"key"))
-//      .withColumn("value", to_avro($"value"))
-//      .alsoShow()
+      .expand_json("key")
+      .expand_json("value")
+      .alsoShow()
+      .withColumn("key", to_avro($"key"))
+      .withColumn("value", to_avro($"value"))
+      .alsoShow()
   }
 
   val createABC: String =
