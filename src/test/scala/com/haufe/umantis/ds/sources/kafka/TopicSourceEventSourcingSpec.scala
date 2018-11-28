@@ -15,16 +15,22 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
-import com.haufe.umantis.ds.spark.{SparkIO, SparkSessionWrapper}
+import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.avro._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
+import kafka.admin.AdminUtils
+import kafka.utils.ZkUtils
+import kafka.zk.{AdminZkClient, KafkaZkClient}
+import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
 
-import sys.process._
+import scala.sys.process._
 
-trait KafkaTest extends SparkIO {
+trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
   val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
 
@@ -65,10 +71,45 @@ trait KafkaTest extends SparkIO {
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with KafkaTest with TopicSourceEventSourcingSpecFixture {
+    with SparkIO with TopicSourceEventSourcingSpecFixture {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
+
+//  val kafkaZkClient: KafkaZkClient = {
+//    import org.apache.kafka.common.utils.Time
+//    KafkaZkClient(
+//      zookeeper,
+//      isSecure=false,
+//      sessionTimeoutMs=200000,
+//      connectionTimeoutMs=15000,
+//      maxInFlightRequests=10,
+//      time=Time.SYSTEM,
+//      metricGroup="myGroup",
+//      metricType="myType")
+//  }
+
+//  val adminZkClient: AdminZkClient = AdminZkClient(kafkaZkClient)
+
+//  val a = org.apache.kafka.clients.admin.AdminClient.create()
+
+  val adminClient: AdminClient = {
+    val props = new java.util.Properties()
+    props.setProperty("bootstrap.servers", kafkaBroker)
+    org.apache.kafka.clients.admin.AdminClient.create(props)
+  }
+
+
+  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
+  def deleteTopic(topic: String): Unit = {
+//    kafkaZkClient.deleteTopic
+//    val partitions = zkUtils.getPartitionsForTopics(Seq(topic))(topic).size
+//    AdminUtils.deleteTopic(zkUtils, topic)
+    import collection.JavaConverters._
+    adminClient.deleteTopics(List(topic).asJavaCollection).all().get()
+//    kafka.zk.AdminZkClient
+//    verifyTopicDeletionWithRetries(zkUtils, topic, partitions, List(this.server))
+  }
 
   def topic: String
 
@@ -92,9 +133,25 @@ trait TopicSourceEventSourcingSpec
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
   def ts: TopicSourceSink
 
-  def sendEvents(events: String): String = {
-    println($"sending events:\n$events")
-    sendEvents(keyschema, schema, topic, events)
+  def sendEvents(events: String): Unit = {
+    println($"sending events to $topic:\n$events")
+//    sendEvents(keyschema, schema, topic, events)
+    toDF(events)
+      .write
+      .format("kafka")
+      .option("schema.registry.url", avroSchemaRegistry)
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("topic", topic)
+      .save()
+
+    currentSparkSession
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("startingOffsets", "earliest")
+      .option("subscribe", topic)
+      .load()
+      .show()
   }
 
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
@@ -111,6 +168,8 @@ trait TopicSourceEventSourcingSpec
 
     // ensure the topic does not exist
     deleteTopic(topic)
+
+//    toDF(createABC)
 
     // entity creation
     sendEvents(createABC)
@@ -181,7 +240,7 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
 }
 
 
-trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper {
+trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
   def fixture(data: Seq[(String, Int)]): DataFrame =
@@ -197,6 +256,20 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper {
 
   val keyschema = """{"name":"key","type":"record","fields":[{"name":"service_name","type":"string"},{"name":"tenant_id","type":"string"},{"name":"identity_id","type":"string"},{"name":"entity_id","type":"string"},{"name":"timestamp","type":"long","logicalType":"timestamp-millis"}]}"""
   val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
+
+  def toDF(strDf: String): DataFrame = {
+    strDf
+      .split('\n').toSeq
+      .map(_.split('|'))
+      .map { case Array(f1, f2) => (f1, f2) }
+      .toDF("key", "value")
+      .expand_json("key")
+      .expand_json("value")
+      .alsoShow()
+      .withColumn("key", to_avro($"key"))
+      .withColumn("value", to_avro($"value"))
+      .alsoShow()
+  }
 
   val createABC: String =
     """
