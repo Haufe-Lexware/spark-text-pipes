@@ -30,9 +30,9 @@ import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
 
 import scala.sys.process._
 
-trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
-
-  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
+//trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
+//
+//  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
 
 //  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
 //    val stream: java.io.InputStream =
@@ -67,11 +67,11 @@ trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 //
 //    command !!
 //  }
-}
+//}
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with KafkaTest {
+    with SparkIO with TopicSourceEventSourcingSpecFixture {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
