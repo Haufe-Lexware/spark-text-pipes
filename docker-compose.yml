@@ -72,7 +72,7 @@ services:
 
   zookeeper:
     container_name: zookeeper
-    image: confluentinc/cp-zookeeper:4.0.0
+    image: confluentinc/cp-zookeeper:latest
     ports:
     - "2181:2181"
     hostname: zookeeper
@@ -83,7 +83,7 @@ services:
 
   kafka:
     container_name: kafka
-    image: confluentinc/cp-kafka:4.0.0
+    image: confluentinc/cp-kafka:latest
     hostname: kafka
     ports:
     - "9092"
@@ -104,9 +104,9 @@ services:
     networks:
     - ds
 
-  schema_registry:
-    container_name: schema_registry
-    image: confluentinc/cp-schema-registry:4.0.0
+  schema-registry:
+    container_name: schema-registry
+    image: confluentinc/cp-schema-registry:latest
     ports:
     - "8181:8081"
     links:
@@ -117,23 +117,23 @@ services:
     - kafka
     environment:
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
-      SCHEMA_REGISTRY_HOST_NAME: schema_registry
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
     networks:
     - ds
 
   kafka_connect:
     container_name: kafka_connect
-    image: confluentinc/cp-kafka-connect:4.0.0
+    image: confluentinc/cp-kafka-connect:latest
     ports:
     - "8083:8083"
     links:
     - zookeeper
     - kafka
-    - schema_registry
+    - schema-registry
     depends_on:
     - zookeeper
     - kafka
-    - schema_registry
+    - schema-registry
     environment:
       # networking
       CONNECT_BOOTSTRAP_SERVERS: "kafka:9092"
@@ -147,15 +147,59 @@ services:
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
-      # convertors
+      # converters
       CONNECT_KEY_CONVERTER: "io.confluent.connect.avro.AvroConverter"
       CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
-      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema_registry:8081"
-      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema_registry:8081"
+      CONNECT_KEY_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       CONNECT_INTERNAL_KEY_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
       CONNECT_INTERNAL_VALUE_CONVERTER: "org.apache.kafka.connect.json.JsonConverter"
     networks:
     - ds
+
+    schema-registry-ui:
+      image: landoop/schema-registry-ui:latest
+      hostname: schema-registry-ui
+      container_name: schema-registry-ui
+      ports:
+      - "8001:8000"
+      environment:
+        SCHEMAREGISTRY_URL: http://schema-registry:8081/
+        ALLOW_SCHEMA_DELETION: "true"
+        PROXY: "true"
+      depends_on:
+      - schema-registry
+
+    kafka-topics-ui:
+      image: landoop/kafka-topics-ui:latest
+      hostname: kafka-topics-ui
+      container_name: kafka-topics-ui
+      ports:
+      - "8000:8000"
+      environment:
+        KAFKA_REST_PROXY_URL: "http://rest-proxy:8082/"
+        PROXY: "true"
+      depends_on:
+      - zookeeper
+      - kafka
+      - schema-registry
+      - rest-proxy
+
+    rest-proxy:
+      image: confluentinc/cp-kafka-rest:latest
+      depends_on:
+      - zookeeper
+      - kafka
+      - schema-registry
+      ports:
+      - 8082:8082
+      hostname: rest-proxy
+      container_name: rest-proxy
+      environment:
+        KAFKA_REST_HOST_NAME: rest-proxy
+        KAFKA_REST_BOOTSTRAP_SERVERS: 'kafka:9092'
+        KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
+        KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
 
 
 networks:
