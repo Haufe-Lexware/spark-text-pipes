@@ -27,8 +27,10 @@ import kafka.admin.AdminUtils
 import kafka.utils.ZkUtils
 import kafka.zk.{AdminZkClient, KafkaZkClient}
 import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
+import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
 
 import scala.sys.process._
+import scala.util.Try
 
 trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
@@ -106,7 +108,7 @@ trait TopicSourceEventSourcingSpec
 //    val partitions = zkUtils.getPartitionsForTopics(Seq(topic))(topic).size
 //    AdminUtils.deleteTopic(zkUtils, topic)
     import collection.JavaConverters._
-    adminClient.deleteTopics(List(topic).asJavaCollection).all().get()
+      Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
 //    kafka.zk.AdminZkClient
 //    verifyTopicDeletionWithRetries(zkUtils, topic, partitions, List(this.server))
   }
@@ -165,6 +167,18 @@ trait TopicSourceEventSourcingSpec
   def values: DataFrame = currentDf.select("f1", "f2")
 
   def doTest(): Unit = {
+
+
+//    val aa = createABC
+//      .split('\n').toSeq
+//      .map(_.split('|'))
+//      .map { case Array(f1, f2) => (f1, f2) }
+//      .toDF("key", "value")
+//      .expand_json("key")
+//      .expand_json("value")
+//
+//    println(SchemaConverters.toAvroType(aa.schema))
+
 
     // ensure the topic does not exist
     deleteTopic(topic)
@@ -265,6 +279,7 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
       .toDF("key", "value")
       .expand_json("key")
       .expand_json("value")
+      .alsoPrintSchema(None)
       .alsoShow()
       .withColumn("key", to_avro($"key"))
       .withColumn("value", to_avro($"value"))

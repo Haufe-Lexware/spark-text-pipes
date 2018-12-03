@@ -57,8 +57,8 @@ class ConfluentSparkAvroUtils(schemaRegistryURLs: String) extends Serializable {
   @transient private lazy val schemaRegistry = {
     // Multiple URLs for HA mode.
     val urls = schemaRegistryURLs.split(",").toList.asJava
-    // Store up to 128 schemas.
-    val cacheCapacity = 128
+    // Store up to 256 schemas.
+    val cacheCapacity = 256
 
     logger.info("Connecting to schema registry server at " + schemaRegistryURLs)
 
