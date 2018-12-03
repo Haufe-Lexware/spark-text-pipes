@@ -4,7 +4,6 @@ services:
   master:
     image: spark-master
     build: ./docker/master
-    container_name: master
     ports:
       - "8080:8080"
       - "4040:4040"
@@ -25,7 +24,6 @@ services:
   worker:
     image: spark-worker
     build: ./docker/worker
-    container_name: worker
     depends_on:
       - master
     ports:
@@ -42,7 +40,6 @@ services:
 
   zeppelin:
     image: apache/zeppelin:0.8.0
-    container_name: zeppelin
     hostname: zeppelin
     networks:
       - ds
@@ -71,7 +68,6 @@ services:
 
 
   zookeeper:
-    container_name: zookeeper
     image: confluentinc/cp-zookeeper:latest
     ports:
     - "2181:2181"
@@ -82,7 +78,6 @@ services:
     - ds
 
   kafka:
-    container_name: kafka
     image: confluentinc/cp-kafka:latest
     hostname: kafka
     ports:
@@ -105,7 +100,6 @@ services:
     - ds
 
   schema-registry:
-    container_name: schema-registry
     image: confluentinc/cp-schema-registry:latest
     ports:
     - "8181:8081"
@@ -122,7 +116,6 @@ services:
     - ds
 
   kafka_connect:
-    container_name: kafka_connect
     image: confluentinc/cp-kafka-connect:latest
     ports:
     - "8083:8083"
@@ -157,50 +150,52 @@ services:
     networks:
     - ds
 
-    schema-registry-ui:
-      image: landoop/schema-registry-ui:latest
-      hostname: schema-registry-ui
-      container_name: schema-registry-ui
-      ports:
-      - "8001:8000"
-      environment:
-        SCHEMAREGISTRY_URL: http://schema-registry:8081/
-        ALLOW_SCHEMA_DELETION: "true"
-        PROXY: "true"
-      depends_on:
-      - schema-registry
+  schema-registry-ui:
+    image: landoop/schema-registry-ui:latest
+    hostname: schema-registry-ui
+    ports:
+    - "8001:8000"
+    environment:
+      SCHEMAREGISTRY_URL: http://schema-registry:8081/
+      ALLOW_SCHEMA_DELETION: "true"
+      PROXY: "true"
+    depends_on:
+    - schema-registry
+    networks:
+    - ds
 
-    kafka-topics-ui:
-      image: landoop/kafka-topics-ui:latest
-      hostname: kafka-topics-ui
-      container_name: kafka-topics-ui
-      ports:
-      - "8000:8000"
-      environment:
-        KAFKA_REST_PROXY_URL: "http://rest-proxy:8082/"
-        PROXY: "true"
-      depends_on:
-      - zookeeper
-      - kafka
-      - schema-registry
-      - rest-proxy
+  kafka-topics-ui:
+    image: landoop/kafka-topics-ui:latest
+    hostname: kafka-topics-ui
+    ports:
+    - "8000:8000"
+    environment:
+      KAFKA_REST_PROXY_URL: "http://rest-proxy:8082/"
+      PROXY: "true"
+    depends_on:
+    - zookeeper
+    - kafka
+    - schema-registry
+    - rest-proxy
+    networks:
+    - ds
 
-    rest-proxy:
-      image: confluentinc/cp-kafka-rest:latest
-      depends_on:
-      - zookeeper
-      - kafka
-      - schema-registry
-      ports:
-      - 8082:8082
-      hostname: rest-proxy
-      container_name: rest-proxy
-      environment:
-        KAFKA_REST_HOST_NAME: rest-proxy
-        KAFKA_REST_BOOTSTRAP_SERVERS: 'kafka:9092'
-        KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
-        KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
-
+  rest-proxy:
+    image: confluentinc/cp-kafka-rest:latest
+    depends_on:
+    - zookeeper
+    - kafka
+    - schema-registry
+    ports:
+    - 8082:8082
+    hostname: rest-proxy
+    environment:
+      KAFKA_REST_HOST_NAME: rest-proxy
+      KAFKA_REST_BOOTSTRAP_SERVERS: 'kafka:9092'
+      KAFKA_REST_LISTENERS: "http://0.0.0.0:8082"
+      KAFKA_REST_SCHEMA_REGISTRY_URL: 'http://schema-registry:8081'
+    networks:
+      - ds
 
 networks:
   ds:
