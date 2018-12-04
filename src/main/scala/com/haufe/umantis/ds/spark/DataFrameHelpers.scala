@@ -72,7 +72,7 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df
     }
 
-    def alsoPrintSchema(header: Option[String]): DataFrame = {
+    def alsoPrintSchema(header: Option[String] = None): DataFrame = {
       header match {
         case Some(s) => println(s"\n$s")
         case _ =>

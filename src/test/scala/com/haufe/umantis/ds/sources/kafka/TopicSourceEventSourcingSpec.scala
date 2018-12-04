@@ -28,6 +28,9 @@ import kafka.utils.ZkUtils
 import kafka.zk.{AdminZkClient, KafkaZkClient}
 import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
+import play.api.libs.json.Json
+
+import org.apache.spark.sql.functions._
 
 import scala.sys.process._
 import scala.util.Try
@@ -168,16 +171,60 @@ trait TopicSourceEventSourcingSpec
 
   def doTest(): Unit = {
 
+    deleteTopic(topic)
 
-//    val aa = createABC
-//      .split('\n').toSeq
-//      .map(_.split('|'))
-//      .map { case Array(f1, f2) => (f1, f2) }
-//      .toDF("key", "value")
-//      .expand_json("key")
-//      .expand_json("value")
-//
-//    println(SchemaConverters.toAvroType(aa.schema))
+    println("orig")
+    val aa = createABC
+      .split('\n').toSeq
+      .map(_.split('|'))
+      .map { case Array(f1, f2) => (f1, f2) }
+      .toDF("key", "value")
+      .expand_json("key")
+      .expand_json("value")
+      .alsoPrintSchema()
+      .alsoShow()
+
+    val aas = SchemaConverters.toAvroType(aa.schema)
+    println(aas)
+    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
+    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
+    println(Json.prettyPrint(Json.parse(aakey)))
+    println(Json.prettyPrint(Json.parse(aavalue)))
+
+    println("converted")
+//    aa
+//      .select(
+//        to_avro($"key") as "key",
+//        to_avro($"value") as "value"
+//      )
+//      .select(
+//        from_avro($"key", aakey) as "key",
+//        from_avro($"value", aavalue) as "value"
+//      )
+//      .expand("key")
+//      .expand("value")
+//      .alsoPrintSchema()
+//      .show(false)
+
+    aa
+      .select(
+        to_confluent_avro(aa, $"key", avroSchemaRegistry, topic + "-key") as "key",
+        to_confluent_avro(aa, $"value", avroSchemaRegistry, topic + "-value") as "value"
+      )
+      .alsoPrintSchema(Some("avroserialized"))
+      .alsoShow()
+      .select(
+        from_confluent_avro($"key", avroSchemaRegistry, topic + "-key") as "key",
+        from_confluent_avro($"value", avroSchemaRegistry, topic + "-value") as "value"
+      )
+      .expand("key")
+      .expand("key")
+      .expand("value")
+      .expand("value")
+      .alsoPrintSchema(Some("avrodeserialized"))
+      .alsoShow()
+
+    System.exit(0)
 
 
     // ensure the topic does not exist
