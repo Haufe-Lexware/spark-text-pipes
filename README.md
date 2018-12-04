@@ -108,10 +108,6 @@ mkdir ${ROOT_DIR}/apps
 mkdir ${ROOT_DIR}/apps/corenlp
 mkdir ${ROOT_DIR}/apps/scripts
 
-# This python code is used for testing to create/delete Kafka Topics
-cd ${ROOT_DIR}/apps/scripts
-git clone https://github.com/Haufe-Lexware/py-kafka-avro-console
-
 # If Stanford CoreNLP is used, download the models
 sh scripts/get_stanford_corenlp_models.sh
 
@@ -164,8 +160,6 @@ Inside a docker container with access to all necessary docker container dependen
 assuming your `$ROOT_DIR/apps/` is `/apps/`,
 
 ```bash
-cd /apps/scripts/py-kafka-avro-console
-pip3 install -r requirements.txt 
 cd /apps/
 git clone https://github.com/Haufe-Lexware/spark-text-pipes.git
 cd spark-text-pipes

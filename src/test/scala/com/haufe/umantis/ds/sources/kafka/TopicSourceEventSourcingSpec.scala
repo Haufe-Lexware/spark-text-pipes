@@ -23,95 +23,15 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.avro._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
-import kafka.admin.AdminUtils
-import kafka.utils.ZkUtils
-import kafka.zk.{AdminZkClient, KafkaZkClient}
-import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
 
-import scala.sys.process._
-import scala.util.Try
-
-trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
-
-  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
-
-  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
-    val stream: java.io.InputStream =
-      new java.io.ByteArrayInputStream(
-        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-      s"--brokers $kafkaBroker",
-      s"--registry $avroSchemaRegistry",
-      s"--keyschema $keyschema",
-      s"--schema $schema",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    command #< stream !!
-  }
-
-  def deleteTopic(topic: String): Unit = {
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-      s"--brokers $kafkaBroker",
-      s"--zookeeper $zookeeper",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    println(command)
-
-    command !!
-  }
-}
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with TopicSourceEventSourcingSpecFixture {
+    with SparkIO with TopicSourceEventSourcingSpecFixture with DataFrameAvroHelpers
+    with KafkaExternalServices {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
-
-//  val kafkaZkClient: KafkaZkClient = {
-//    import org.apache.kafka.common.utils.Time
-//    KafkaZkClient(
-//      zookeeper,
-//      isSecure=false,
-//      sessionTimeoutMs=200000,
-//      connectionTimeoutMs=15000,
-//      maxInFlightRequests=10,
-//      time=Time.SYSTEM,
-//      metricGroup="myGroup",
-//      metricType="myType")
-//  }
-
-//  val adminZkClient: AdminZkClient = AdminZkClient(kafkaZkClient)
-
-//  val a = org.apache.kafka.clients.admin.AdminClient.create()
-
-  val adminClient: AdminClient = {
-    val props = new java.util.Properties()
-    props.setProperty("bootstrap.servers", kafkaBroker)
-    org.apache.kafka.clients.admin.AdminClient.create(props)
-  }
-
-
-  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
-  def deleteTopic(topic: String): Unit = {
-//    kafkaZkClient.deleteTopic
-//    val partitions = zkUtils.getPartitionsForTopics(Seq(topic))(topic).size
-//    AdminUtils.deleteTopic(zkUtils, topic)
-    import collection.JavaConverters._
-      Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
-//    kafka.zk.AdminZkClient
-//    verifyTopicDeletionWithRetries(zkUtils, topic, partitions, List(this.server))
-  }
 
   def topic: String
 
@@ -119,18 +39,18 @@ trait TopicSourceEventSourcingSpec
   def topicName =
     new GenericTopicName(
       topic, "value", Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF))
-//  def identity: DataFrame => DataFrame = {df => df}
-  def transformationFunction: DataFrame => DataFrame = {df =>
-    df
-      .transformWithPipeline(
-        DsPipeline(
-          DsPipelineInput(
-            ColnamesText("f1"),
-            StandardPipeline.TextDataPreprocessing
-          )
-        ).pipeline
-      )
-  }
+  def transformationFunction: DataFrame => DataFrame = {df => df}
+//  def transformationFunction: DataFrame => DataFrame = {df =>
+//    df
+//      .transformWithPipeline(
+//        DsPipeline(
+//          DsPipelineInput(
+//            ColnamesText("f1"),
+//            StandardPipeline.TextDataPreprocessing
+//          )
+//        ).pipeline
+//      )
+//  }
   def sinkConf = SinkConf(transformationFunction, refreshTime = 1 /* seconds */, numPartitions = 4)
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
   def ts: TopicSourceSink
@@ -167,23 +87,6 @@ trait TopicSourceEventSourcingSpec
   def values: DataFrame = currentDf.select("f1", "f2")
 
   def doTest(): Unit = {
-
-
-//    val aa = createABC
-//      .split('\n').toSeq
-//      .map(_.split('|'))
-//      .map { case Array(f1, f2) => (f1, f2) }
-//      .toDF("key", "value")
-//      .expand_json("key")
-//      .expand_json("value")
-//
-//    println(SchemaConverters.toAvroType(aa.schema))
-
-
-    // ensure the topic does not exist
-    deleteTopic(topic)
-
-//    toDF(createABC)
 
     // entity creation
     sendEvents(createABC)
@@ -257,11 +160,12 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
 trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
-  def fixture(data: Seq[(String, Int)]): DataFrame =
+  def fixture(data: Seq[(String, Int)]): DataFrame = {
     data
-      .map{ case (s, i) => (Some(s"I am entity $s"), Some(i))} // Some() so columns are set nullable
+      .map { case (s, i) => (Some(s"I am entity $s"), Some(i)) } // Some() so columns are set nullable
       .toDF("f1", "f2")
       .sort($"f1")
+  }
 
   val df1: DataFrame = fixture(Seq(("A", 3), ("B", 4), ("C", 5)))
   val df2: DataFrame = fixture(Seq(("A", 10), ("B", 4), ("C", 5)))
@@ -272,7 +176,7 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
   val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
 
   def toDF(strDf: String): DataFrame = {
-    strDf
+    val df = strDf
       .split('\n').toSeq
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
@@ -284,6 +188,8 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
       .withColumn("key", to_avro($"key"))
       .withColumn("value", to_avro($"value"))
       .alsoShow()
+
+    df.sqlContext.createDataFrame(df.rdd, df.schema)
   }
 
   val createABC: String =

@@ -8,10 +8,11 @@ resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/mave
 
 val appsPath = sys.env.getOrElse("APPS_PATH", "../apps")
 
-lazy val akkaKryoSerializerUpdated = RootProject(
-  uri("https://github.com/Haufe-Lexware/akka-kryo-serialization.git"))
+lazy val akkaKryoSerializerUpdated = 
+  RootProject(uri("https://github.com/Haufe-Lexware/akka-kryo-serialization.git"))
 
 lazy val root = (project in file(".")).dependsOn(akkaKryoSerializerUpdated)
+
 
 dependencyOverrides ++= Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % "2.8.4",
@@ -140,7 +141,7 @@ libraryDependencies +="org.dispatchhttp" %% "dispatch-core" % "0.14.0"
 // KAFKA
 resolvers += "confluent" at "http://packages.confluent.io/maven/"
 
-libraryDependencies += "io.confluent" % "kafka-avro-serializer" % "4.0.0"
+libraryDependencies += "io.confluent" % "kafka-avro-serializer" % "5.0.1"
 
 // https://mvnrepository.com/artifact/com.databricks/spark-avro
 libraryDependencies += "com.databricks" %% "spark-avro" % "4.0.0"

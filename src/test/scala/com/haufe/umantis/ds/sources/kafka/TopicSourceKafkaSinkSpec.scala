@@ -25,7 +25,7 @@ import org.apache.spark.sql.types.{LongType, StructField, StructType}
 import org.scalatest.BeforeAndAfter
 
 class TopicSourceKafkaSinkSpec extends SparkSpec
-  with SparkIO with KafkaTest with TopicSourceKafkaSinkSpecFixture with BeforeAndAfter {
+  with SparkIO with KafkaExternalServices with TopicSourceKafkaSinkSpecFixture with BeforeAndAfter {
   import currentSparkSession.implicits._
 
   val inputTopic = "test.kafka.sink.input"
