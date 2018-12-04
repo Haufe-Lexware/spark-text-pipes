@@ -8,12 +8,11 @@ resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/mave
 
 val appsPath = sys.env.getOrElse("APPS_PATH", "../apps")
 
-lazy val akkaKryoSerializerUpdated = RootProject(
-  uri("https://github.com/Haufe-Lexware/akka-kryo-serialization.git"))
-
-
+lazy val akkaKryoSerializerUpdated = 
+  RootProject(uri("https://github.com/Haufe-Lexware/akka-kryo-serialization.git"))
 
 lazy val root = (project in file(".")).dependsOn(akkaKryoSerializerUpdated)
+
 
 dependencyOverrides ++= Seq(
   "com.fasterxml.jackson.core" % "jackson-core" % "2.8.4",
