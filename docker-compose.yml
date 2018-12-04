@@ -81,8 +81,8 @@ services:
     image: confluentinc/cp-kafka:latest
     hostname: kafka
     ports:
-    - "9092"
-    - "9091:9091"
+      - "9092:9092"
+      - "29092:29092"
     links:
     - zookeeper
     depends_on:
@@ -91,7 +91,7 @@ services:
       ADVERTISED_HOST_NAME: "kafka"
       KAFKA_INTER_BROKER_LISTENER_NAME: "PLAINTEXT"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT"
-      KAFKA_ADVERTISED_LISTENERS: "EXTERNAL://kafka:9091,PLAINTEXT://kafka:9092"
+      KAFKA_ADVERTISED_LISTENERS: "EXTERNAL://localhost:29092,PLAINTEXT://kafka:9092"
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_DELETE_RETENTION_MS: 5000
       KAFKA_LOG_CLEANER_DELETE_RETENTION_MS: 5000
