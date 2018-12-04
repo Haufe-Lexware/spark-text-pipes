@@ -174,7 +174,7 @@ trait TopicSourceEventSourcingSpec
     deleteTopic(topic)
 
     println("orig")
-    val ab = createABC
+    val aa = createABC
       .split('\n').toSeq
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
@@ -186,29 +186,7 @@ trait TopicSourceEventSourcingSpec
       .alsoPrintSchema()
       .alsoShow()
 
-    val aa = ab.columns.foldLeft(ab)((df, column) => df.setNullableStateOfColumn(column, false))
-
-//    val aas = SchemaConverters.toAvroType(aa.schema)
-//    println(aas)
-//    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
-//    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
-//    println(Json.prettyPrint(Json.parse(aakey)))
-//    println(Json.prettyPrint(Json.parse(aavalue)))
-
-//    println("converted")
-//    aa
-//      .select(
-//        to_avro($"key") as "key",
-//        to_avro($"value") as "value"
-//      )
-//      .select(
-//        from_avro($"key", aakey) as "key",
-//        from_avro($"value", aavalue) as "value"
-//      )
-//      .expand("key")
-//      .expand("value")
-//      .alsoPrintSchema()
-//      .show(false)
+//    val aa = ab.columns.foldLeft(ab)((df, column) => df.setNullableStateOfColumn(column, false))
 
     aa
       .to_confluent_avro(

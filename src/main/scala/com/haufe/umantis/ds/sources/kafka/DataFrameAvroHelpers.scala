@@ -71,7 +71,6 @@ trait DataFrameAvroHelpers {
         recordName = recordName,
         nameSpace = nameSpace
       )
-//      print(schema)
       schemaRegistry.register(subject, schema)
 
       val dfWithAvroCol = df.withColumn(outputColumn, to_avro(struct(inputCols: _*)))
@@ -81,4 +80,3 @@ trait DataFrameAvroHelpers {
     }
   }
 }
-
