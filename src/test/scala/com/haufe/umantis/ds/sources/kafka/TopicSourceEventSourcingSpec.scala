@@ -76,7 +76,7 @@ trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with TopicSourceEventSourcingSpecFixture {
+    with SparkIO with TopicSourceEventSourcingSpecFixture with DataFrameAvroHelpers {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -174,24 +174,28 @@ trait TopicSourceEventSourcingSpec
     deleteTopic(topic)
 
     println("orig")
-    val aa = createABC
+    val ab = createABC
       .split('\n').toSeq
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
       .expand_json("key")
+      .expand("key")
       .expand_json("value")
+      .expand("value")
       .alsoPrintSchema()
       .alsoShow()
 
-    val aas = SchemaConverters.toAvroType(aa.schema)
-    println(aas)
-    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
-    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
-    println(Json.prettyPrint(Json.parse(aakey)))
-    println(Json.prettyPrint(Json.parse(aavalue)))
+    val aa = ab.columns.foldLeft(ab)((df, column) => df.setNullableStateOfColumn(column, false))
 
-    println("converted")
+//    val aas = SchemaConverters.toAvroType(aa.schema)
+//    println(aas)
+//    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
+//    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
+//    println(Json.prettyPrint(Json.parse(aakey)))
+//    println(Json.prettyPrint(Json.parse(aavalue)))
+
+//    println("converted")
 //    aa
 //      .select(
 //        to_avro($"key") as "key",
@@ -207,19 +211,27 @@ trait TopicSourceEventSourcingSpec
 //      .show(false)
 
     aa
-      .select(
-        to_confluent_avro(aa, $"key", avroSchemaRegistry, topic + "-key") as "key",
-        to_confluent_avro(aa, $"value", avroSchemaRegistry, topic + "-value") as "value"
+      .to_confluent_avro(
+        avroSchemaRegistry,
+        topic + "-key",
+        "key",
+        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        "TestKey",
+        "com.jaumo"
+      )
+      .to_confluent_avro(
+        avroSchemaRegistry,
+        topic + "-value",
+        "value",
+        Array("f1", "f2"),
+        "TestValue",
+        "com.jaumo"
       )
       .alsoPrintSchema(Some("avroserialized"))
       .alsoShow()
-      .select(
-        from_confluent_avro($"key", avroSchemaRegistry, topic + "-key") as "key",
-        from_confluent_avro($"value", avroSchemaRegistry, topic + "-value") as "value"
-      )
+      .from_confluent_avro("key", "key", avroSchemaRegistry, topic + "-key")
+      .from_confluent_avro("value", "value", avroSchemaRegistry, topic + "-value")
       .expand("key")
-      .expand("key")
-      .expand("value")
       .expand("value")
       .alsoPrintSchema(Some("avrodeserialized"))
       .alsoShow()
