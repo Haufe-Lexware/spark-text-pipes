@@ -147,40 +147,28 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
   def doUpdateDf(): DataFrame = {
 
     println("TopicSourceKafkaSink read before postprocessdf")
-//    try {
-      val kafkaDf = currentSparkSession
-        .read
-        .format("kafka")
+    val kafkaDf = currentSparkSession
+      .read
+      .format("kafka")
 
-        // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
-        // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-        //      .option("kafka.retries", 100)
+      // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
+      // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
+      // .option("kafka.retries", 100)
 
-        .options(options)
-        .option("startingOffsets", "earliest")
-        .option("subscribe", outputTopicName)
-        .load()
-        .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
-        .alsoShow(20, 12)
-        .deserialize("key", "value")
-        //      .select("value")
-        //      .withColumn("value", $"value".cast("string"))
-        //      .withColumn("value", from_json($"value", outputSchema))
-        .expand("value")
-        //.repartition(conf.sinkConf.numPartitions)
-        .alsoShow(20, 12)
+      .options(options)
+      .option("startingOffsets", "earliest")
+      .option("subscribe", outputTopicName)
+      .load()
+      .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
+      .alsoShow(20, 12)
+      .deserialize("key", "value")
+      .expand("value")
+      .repartition(conf.sinkConf.numPartitions)
+      .alsoShow(20, 12)
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
-      dataFrame = Some(newDataFrame)
-      newDataFrame
-
-//    } catch {
-//      case e: Exception => e.printStackTrace()
-//        System.exit(0)
-//        import currentSparkSession.implicits._
-//        Seq(1, 2).toDF()
-//    }
-
+    dataFrame = Some(newDataFrame)
+    newDataFrame
   }
 }
