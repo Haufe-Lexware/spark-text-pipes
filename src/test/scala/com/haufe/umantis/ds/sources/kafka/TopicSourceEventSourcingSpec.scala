@@ -23,56 +23,7 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.avro._
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
-import kafka.admin.AdminUtils
-import kafka.utils.ZkUtils
-import kafka.zk.{AdminZkClient, KafkaZkClient}
-import org.apache.kafka.clients.admin.{AdminClient, KafkaAdminClient}
-import org.apache.kafka.common.errors.UnknownTopicOrPartitionException
-import play.api.libs.json.Json
 
-import org.apache.spark.sql.functions._
-
-import scala.sys.process._
-import scala.util.Try
-
-//trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
-//
-//  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
-//
-//  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
-//    val stream: java.io.InputStream =
-//      new java.io.ByteArrayInputStream(
-//        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-//
-//    val command = Seq(
-//      "/usr/bin/python3",
-//      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-//      s"--brokers $kafkaBroker",
-//      s"--registry $avroSchemaRegistry",
-//      s"--keyschema $keyschema",
-//      s"--schema $schema",
-//      s"--topic $topic"
-//    )
-//      .mkString(" ")
-//
-//    command #< stream !!
-//  }
-//
-//  def deleteTopic(topic: String): Unit = {
-//    val command = Seq(
-//      "/usr/bin/python3",
-//      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-//      s"--brokers $kafkaBroker",
-//      s"--zookeeper $zookeeper",
-//      s"--topic $topic"
-//    )
-//      .mkString(" ")
-//
-//    println(command)
-//
-//    command !!
-//  }
-//}
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
@@ -82,41 +33,24 @@ trait TopicSourceEventSourcingSpec
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
 
-//  val kafkaZkClient: KafkaZkClient = {
-//    import org.apache.kafka.common.utils.Time
-//    KafkaZkClient(
-//      zookeeper,
-//      isSecure=false,
-//      sessionTimeoutMs=200000,
-//      connectionTimeoutMs=15000,
-//      maxInFlightRequests=10,
-//      time=Time.SYSTEM,
-//      metricGroup="myGroup",
-//      metricType="myType")
-//  }
-
-//  val adminZkClient: AdminZkClient = AdminZkClient(kafkaZkClient)
-
-//  val a = org.apache.kafka.clients.admin.AdminClient.create()
-
   def topic: String
 
   def kafkaConf: KafkaConf = KafkaConf(kafkaBroker, Some(avroSchemaRegistry))
   def topicName =
     new GenericTopicName(
       topic, "value", Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF))
-//  def identity: DataFrame => DataFrame = {df => df}
-  def transformationFunction: DataFrame => DataFrame = {df =>
-    df
-      .transformWithPipeline(
-        DsPipeline(
-          DsPipelineInput(
-            ColnamesText("f1"),
-            StandardPipeline.TextDataPreprocessing
-          )
-        ).pipeline
-      )
-  }
+  def transformationFunction: DataFrame => DataFrame = {df => df}
+//  def transformationFunction: DataFrame => DataFrame = {df =>
+//    df
+//      .transformWithPipeline(
+//        DsPipeline(
+//          DsPipelineInput(
+//            ColnamesText("f1"),
+//            StandardPipeline.TextDataPreprocessing
+//          )
+//        ).pipeline
+//      )
+//  }
   def sinkConf = SinkConf(transformationFunction, refreshTime = 1 /* seconds */, numPartitions = 4)
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
   def ts: TopicSourceSink
@@ -153,95 +87,6 @@ trait TopicSourceEventSourcingSpec
   def values: DataFrame = currentDf.select("f1", "f2")
 
   def doTest(): Unit = {
-
-    deleteTopic(topic)
-
-    println("orig")
-    val aa = createABC
-      .split('\n').toSeq
-      .map(_.split('|'))
-      .map { case Array(f1, f2) => (f1, f2) }
-      .toDF("key", "value")
-      .expand_json("key")
-//      .expand("key")
-      .expand_json("value")
-//      .expand("value")
-      .alsoPrintSchema()
-      .alsoShow()
-//      .setNullableStateOfColumns(false)
-
-//    val aa = ab.columns.foldLeft(ab)((df, column) => df.setNullableStateOfColumn(column, false))
-
-
-    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
-    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
-    println(aavalue)
-    aa
-      .select(
-        to_avro($"key") as "key",
-        to_avro($"value") as "value"
-      )
-      .alsoShow()
-      .select(
-        from_avro($"key", aakey) as "key",
-        from_avro($"value", aavalue) as "value"
-      )
-      .expand("key")
-      .expand("value")
-      .alsoPrintSchema()
-      .show(false)
-
-//    aa
-//      .select(
-//        to_confluent_avro_fun(aa, $"key", avroSchemaRegistry, topic + "-key") as "key",
-//        to_confluent_avro_fun(aa, $"value", avroSchemaRegistry, topic + "-value") as "value"
-//      )
-//      .alsoPrintSchema(Some("avroserialized"))
-//      .alsoShow()
-//      .select(
-//        from_confluent_avro_fun($"key", avroSchemaRegistry, topic + "-key") as "key",
-//        from_confluent_avro_fun($"value", avroSchemaRegistry, topic + "-value") as "value"
-//      )
-//      .expand("key")
-//      .expand("key")
-//      .expand("value")
-//      .expand("value")
-//      .alsoPrintSchema(Some("avrodeserialized"))
-//      .alsoShow()
-
-//    aa
-//      .to_confluent_avro(
-//        avroSchemaRegistry,
-//        topic + "-key",
-//        "key",
-//        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
-//        "TestKey",
-//        "com.jaumo"
-//      )
-//      .to_confluent_avro(
-//        avroSchemaRegistry,
-//        topic + "-value",
-//        "value",
-//        Array("f1", "f2"),
-//        "TestValue",
-//        "com.jaumo"
-//      )
-//      .alsoPrintSchema(Some("avroserialized"))
-//      .alsoShow()
-//      .from_confluent_avro("key", "key", avroSchemaRegistry, topic + "-key")
-//      .from_confluent_avro("value", "value", avroSchemaRegistry, topic + "-value")
-//      .expand("key")
-//      .expand("value")
-//      .alsoPrintSchema(Some("avrodeserialized"))
-//      .alsoShow()
-
-//    System.exit(0)
-
-
-    // ensure the topic does not exist
-    deleteTopic(topic)
-
-//    toDF(createABC)
 
     // entity creation
     sendEvents(createABC)
