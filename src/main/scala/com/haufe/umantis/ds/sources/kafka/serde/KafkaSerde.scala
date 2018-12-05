@@ -16,15 +16,17 @@
 package com.haufe.umantis.ds.sources.kafka.serde
 
 import com.haufe.umantis.ds.sources.kafka.{KafkaTopicDataFrameHelper, TopicConf}
-import com.haufe.umantis.ds.spark.DataFrameHelpers
+import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, from_json}
+import org.apache.spark.sql.streaming.Trigger
 
 import scala.util.Try
 
 
-class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
+trait KafkaAvroSerde extends DataFrameAvroHelpers {
+  def conf: TopicConf
 
   private lazy val schemaRegistry: Option[CachedSchemaRegistryClient] =
     conf.kafkaConf.schemaRegistryURL match {
@@ -63,6 +65,61 @@ class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
       case _ => false
     }
   }
+}
+
+trait KafkaJsonSerde extends SparkIO {
+  def conf: TopicConf
+
+  def deserializeJsonInKafkaStream(
+                                    df: DataFrame,
+                                    inputColumn: String,
+                                    outputColumn: String
+                                  )
+  : DataFrame = {
+    // Payload is serialized using JSON, Spark cannot infer the schema.
+    // To infer the schema, we read a couple of messages, write them to a JSON file,
+    // infer the schema from JSON, and finally define the stream of the normal query
+
+    val tmpFilename = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}"
+    val tmpFilenameCheckpoint = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Checkpoint"
+    val tmpFilenameJson = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Json"
+
+    // let's ensure these temp filename do not exist
+    deleteFile(tmpFilename)
+    deleteFile(tmpFilenameCheckpoint)
+    deleteFile(tmpFilenameJson)
+
+    // we use Structured Streaming, as to use batches we should know the Kafka offsets
+    // which are not easy to get from Spark
+    df
+      .select(inputColumn)
+      .writeStream
+      .outputMode("append")
+      .option("checkpointLocation", tmpFilenameCheckpoint)
+      .format("parquet")
+      .trigger(Trigger.Once)
+      .start(tmpFilename)
+      .awaitTermination()
+
+    // Reading the parquet file and writing it again to JSON
+    currentSparkSession
+      .read
+      .parquet(tmpFilename)
+      .write
+      .mode("overwrite")
+      .format("text")
+      .save(tmpFilenameJson)
+
+    // Finally inferring the schema
+    val jsonSchema = currentSparkSession.read.json(tmpFilenameJson).schema
+
+    df
+      .withColumn(outputColumn, from_json(col(inputColumn), jsonSchema))
+  }
+}
+
+
+trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
 
   implicit class SourceHelpers(df: DataFrame)
     extends DataFrameHelpers with KafkaTopicDataFrameHelper {
@@ -79,7 +136,11 @@ class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
             "latest"
           )
         case _ =>
-          df.withColumn(keyColumn, col(keyColumn).cast("string"))
+          deserializeJsonInKafkaStream(
+            df.withColumn(keyColumn, col(keyColumn).cast("string")),
+            keyColumn,
+            keyColumn
+          )
       }
 
       valueSchema match {
@@ -92,7 +153,11 @@ class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
             "latest"
           )
         case _ =>
-          dfWithDeserializedKey.withColumn(valueColumn, col(valueColumn).cast("string"))
+          deserializeJsonInKafkaStream(
+            dfWithDeserializedKey.withColumn(valueColumn, col(valueColumn).cast("string")),
+            valueColumn,
+            valueColumn
+          )
       }
     }
   }

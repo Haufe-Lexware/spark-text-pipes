@@ -204,7 +204,7 @@ extends TopicSourceSink(conf)
   /**
     * @return Pretty String describing the Avro schema of the associated topic.
     */
-  def schema: Option[String] = kafkaSerializer.valueSchema
+  def schema: Option[String] = valueSchema
 }
 
 
