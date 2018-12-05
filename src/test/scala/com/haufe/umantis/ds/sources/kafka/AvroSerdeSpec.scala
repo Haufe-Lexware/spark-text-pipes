@@ -18,7 +18,11 @@ package com.haufe.umantis.ds.sources.kafka
 import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
+import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
+import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
 import org.scalatest.Matchers._
+
+import scala.util.Try
 
 class AvroSerdeSpec
   extends SparkSpec with SparkIO with DataFrameAvroHelpers {
@@ -38,9 +42,57 @@ class AvroSerdeSpec
   val schemaRegistryClient =
     new CachedSchemaRegistryClient(avroSchemaRegistry, 256)
 
+
+  def deleteSubject(subject: String): Unit = {
+    try {
+      val versions = schemaRegistryClient.deleteSubject(subject)
+      println(s"$subject versions deleted $versions")
+    } catch {
+      case e: RestClientException => e.getMessage()
+    }
+  }
+
+  "to_avro/from_avro" should "give correct results" in {
+    import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
+    import org.apache.spark.sql.DataFrame
+
+    val input1 = Seq("foo", "bar", "baz").toDF("key")
+    val input2 = input1.sqlContext.createDataFrame(input1.rdd, input1.schema)
+
+    def test_avro(df: DataFrame): Unit = {
+      println("input df:")
+      df.printSchema()
+      df.show()
+
+      val keySchema = SchemaConverters.toAvroType(df.schema).toString
+      println(s"avro schema: $keySchema")
+
+      val avroDf = df
+        .select(to_avro($"key") as "key")
+
+      println("avro serialized:")
+      avroDf.printSchema()
+      avroDf.show()
+
+      val output = avroDf
+        .select(from_avro($"key", keySchema) as "key")
+        .select("key.*")
+
+      println("avro deserialized:")
+      output.printSchema()
+      output.show()
+    }
+
+    println("############### testing .toDF()")
+    test_avro(input1)
+    println("############### testing .createDataFrame()")
+    test_avro(input2)
+  }
+
   "DataFrameAvroHelpers" should
     "serialize and deserialize Avro, register and retrieve schemas from the Schema Registry." in {
 
+    deleteSubject(topic + "-key")
 
     val df = testData
       .split('\n').toSeq
@@ -54,10 +106,7 @@ class AvroSerdeSpec
       .alsoPrintSchema()
       .alsoShow()
 
-//    val df = dfNullable.columns
-//      .foldLeft(dfNullable)((df, column) => df.setNullableStateOfColumn(column, nullable = false))
-
-    val dfToAvroAndBack = df
+    val dfToAvroAndBack = df.sqlContext.createDataFrame(df.rdd, df.schema)
       .to_confluent_avro(
         avroSchemaRegistry,
         topic + "-key",

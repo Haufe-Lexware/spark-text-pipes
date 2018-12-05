@@ -180,41 +180,79 @@ trait TopicSourceEventSourcingSpec
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
       .expand_json("key")
-      .expand("key")
+//      .expand("key")
       .expand_json("value")
-      .expand("value")
+//      .expand("value")
       .alsoPrintSchema()
       .alsoShow()
+//      .setNullableStateOfColumns(false)
 
 //    val aa = ab.columns.foldLeft(ab)((df, column) => df.setNullableStateOfColumn(column, false))
 
+
+    val aakey = SchemaConverters.toAvroType(aa.select("key").schema).toString
+    val aavalue = SchemaConverters.toAvroType(aa.select("value").schema).toString
+    println(aavalue)
     aa
-      .to_confluent_avro(
-        avroSchemaRegistry,
-        topic + "-key",
-        "key",
-        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
-        "TestKey",
-        "com.jaumo"
+      .select(
+        to_avro($"key") as "key",
+        to_avro($"value") as "value"
       )
-      .to_confluent_avro(
-        avroSchemaRegistry,
-        topic + "-value",
-        "value",
-        Array("f1", "f2"),
-        "TestValue",
-        "com.jaumo"
-      )
-      .alsoPrintSchema(Some("avroserialized"))
       .alsoShow()
-      .from_confluent_avro("key", "key", avroSchemaRegistry, topic + "-key")
-      .from_confluent_avro("value", "value", avroSchemaRegistry, topic + "-value")
+      .select(
+        from_avro($"key", aakey) as "key",
+        from_avro($"value", aavalue) as "value"
+      )
       .expand("key")
       .expand("value")
-      .alsoPrintSchema(Some("avrodeserialized"))
-      .alsoShow()
+      .alsoPrintSchema()
+      .show(false)
 
-    System.exit(0)
+//    aa
+//      .select(
+//        to_confluent_avro_fun(aa, $"key", avroSchemaRegistry, topic + "-key") as "key",
+//        to_confluent_avro_fun(aa, $"value", avroSchemaRegistry, topic + "-value") as "value"
+//      )
+//      .alsoPrintSchema(Some("avroserialized"))
+//      .alsoShow()
+//      .select(
+//        from_confluent_avro_fun($"key", avroSchemaRegistry, topic + "-key") as "key",
+//        from_confluent_avro_fun($"value", avroSchemaRegistry, topic + "-value") as "value"
+//      )
+//      .expand("key")
+//      .expand("key")
+//      .expand("value")
+//      .expand("value")
+//      .alsoPrintSchema(Some("avrodeserialized"))
+//      .alsoShow()
+
+//    aa
+//      .to_confluent_avro(
+//        avroSchemaRegistry,
+//        topic + "-key",
+//        "key",
+//        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+//        "TestKey",
+//        "com.jaumo"
+//      )
+//      .to_confluent_avro(
+//        avroSchemaRegistry,
+//        topic + "-value",
+//        "value",
+//        Array("f1", "f2"),
+//        "TestValue",
+//        "com.jaumo"
+//      )
+//      .alsoPrintSchema(Some("avroserialized"))
+//      .alsoShow()
+//      .from_confluent_avro("key", "key", avroSchemaRegistry, topic + "-key")
+//      .from_confluent_avro("value", "value", avroSchemaRegistry, topic + "-value")
+//      .expand("key")
+//      .expand("value")
+//      .alsoPrintSchema(Some("avrodeserialized"))
+//      .alsoShow()
+
+//    System.exit(0)
 
 
     // ensure the topic does not exist
@@ -294,11 +332,12 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
 trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
   import currentSparkSession.implicits._
 
-  def fixture(data: Seq[(String, Int)]): DataFrame =
+  def fixture(data: Seq[(String, Int)]): DataFrame = {
     data
-      .map{ case (s, i) => (Some(s"I am entity $s"), Some(i))} // Some() so columns are set nullable
+      .map { case (s, i) => (Some(s"I am entity $s"), Some(i)) } // Some() so columns are set nullable
       .toDF("f1", "f2")
       .sort($"f1")
+  }
 
   val df1: DataFrame = fixture(Seq(("A", 3), ("B", 4), ("C", 5)))
   val df2: DataFrame = fixture(Seq(("A", 10), ("B", 4), ("C", 5)))
@@ -309,7 +348,7 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
   val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
 
   def toDF(strDf: String): DataFrame = {
-    strDf
+    val df = strDf
       .split('\n').toSeq
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
@@ -321,6 +360,8 @@ trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataF
       .withColumn("key", to_avro($"key"))
       .withColumn("value", to_avro($"value"))
       .alsoShow()
+
+    df.sqlContext.createDataFrame(df.rdd, df.schema)
   }
 
   val createABC: String =

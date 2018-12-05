@@ -218,7 +218,7 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       * @param cn is the column name to change
       * @param nullable is the flag to set, such that the column is  either nullable or not
       */
-    def setNullableStateOfColumn(cn: String, nullable: Boolean) : DataFrame = {
+    def setNullableStateOfColumn(cn: String, nullable: Boolean): DataFrame = {
 
       // get schema
       val schema = df.schema
@@ -229,6 +229,18 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       })
       // apply new schema
       df.sqlContext.createDataFrame( df.rdd, newSchema )
+    }
+
+    def setNullableStateOfColumns(nullable: Boolean, columns: Option[Array[String]] = None)
+    : DataFrame = {
+
+      val cols = columns match {
+        case Some(c) => c
+        case _ => df.columns
+      }
+
+      cols
+        .foldLeft(df)((newDf, column) => newDf.setNullableStateOfColumn(column, nullable))
     }
 
   }
