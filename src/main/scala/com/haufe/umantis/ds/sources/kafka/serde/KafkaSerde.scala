@@ -26,7 +26,7 @@ import scala.util.Try
 
 class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
 
-  lazy val schemaRegistry: Option[CachedSchemaRegistryClient] =
+  private lazy val schemaRegistry: Option[CachedSchemaRegistryClient] =
     conf.kafkaConf.schemaRegistryURL match {
       case Some(url) => Some(SchemaRegistryHelper.getSchemaRegistry(url))
       case _ => None

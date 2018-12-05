@@ -204,15 +204,7 @@ extends TopicSourceSink(conf)
   /**
     * @return Pretty String describing the Avro schema of the associated topic.
     */
-  def schema: Option[String] = {
-    kafkaSerializer.schemaRegistry match {
-      case Some(schemaRegistry) =>
-        Try(Some(Json.prettyPrint(Json.parse(
-          kafkaSerializer.getSchema(schemaRegistry, conf.subjectValueName, "latest")
-        )))).getOrElse(None)
-      case _ => None
-    }
-  }
+  def schema: Option[String] = kafkaSerializer.valueSchema
 }
 
 
