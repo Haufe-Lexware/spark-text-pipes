@@ -22,14 +22,10 @@ import org.apache.spark.sql.types.StructType
 
 import scala.util.Try
 
-class TopicSourceKafkaSink(
-                            conf: TopicConf
-                          )
-  extends TopicSourceSink(conf)
-{
+class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
   private var startingOffset: String = "latest"
 
-  var outputSchema: StructType = _
+  private var outputSchema: StructType = _
 
   val outputTopicName: String = conf.kafkaTopicSink match {
     case Some(tn) => tn.topic
@@ -57,14 +53,26 @@ class TopicSourceKafkaSink(
 
     sink =
       try {
-        val sourceDf = getSource("earliest")//startingOffset)
+        val sourceDf = getSource("earliest") //startingOffset)
 
         outputSchema = sourceDf.schema
 
+        val keyCol: Option[String] =
+          if (sourceDf.columns.contains("key"))
+            Some("key")
+          else
+            None
+
         val s = sourceDf
-          .alsoPrintSchema(Some("TopicSourceKafkaSink before JSON serialization"))
-          .selectExpr("to_json(struct(*)) AS value")
-          .alsoPrintSchema(Some("TopicSourceKafkaSink after JSON serialization"))
+          .debugPrintSchema(Some("TopicSourceKafkaSink before serialization"))
+          .serialize(
+            None,
+            None,
+            "value",
+            Some(sourceDf.columns), // .filter(_ != "key")
+            outputTopicName
+          )
+          .debugPrintSchema(Some("TopicSourceKafkaSink after serialization"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
@@ -77,8 +85,8 @@ class TopicSourceKafkaSink(
         Some(s)
 
       } catch {
-        case _: RestClientException =>
-          // e.printStackTrace()
+        case e: RestClientException =>
+          e.printStackTrace()
           println(s"### TOPIC ${conf.kafkaTopic.topic} NOT FOUND IN KAFKA!!! ###")
           None
       }
@@ -124,6 +132,7 @@ class TopicSourceKafkaSink(
 
   /**
     * Returns a Map of the current DataFrame size. It returns "fail" if not available.
+    *
     * @return The status
     */
   def status(): Map[String, String] = {
@@ -142,7 +151,6 @@ class TopicSourceKafkaSink(
   }
 
   def doUpdateDf(): DataFrame = {
-    import currentSparkSession.implicits._
 
     println("TopicSourceKafkaSink read before postprocessdf")
     val kafkaDf = currentSparkSession
@@ -151,24 +159,23 @@ class TopicSourceKafkaSink(
 
       // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
       // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-//      .option("kafka.retries", 100)
+      // .option("kafka.retries", 100)
 
       .options(options)
       .option("startingOffsets", "earliest")
       .option("subscribe", outputTopicName)
       .load()
-      .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
-      .alsoShow(20, 12)
-      .select("value")
-      .withColumn("value", $"value".cast("string"))
-      .withColumn("value", from_json($"value", outputSchema))
-      .expand("value")
+      .debugPrintSchema(Some("TopicSourceKafkaSink just after load"))
+      .debugShow(20, 20)
       .repartition(conf.sinkConf.numPartitions)
-      .alsoShow(20, 12)
+      .deserialize(valueColumn = Some("value"), topic = outputTopicName)
+      .expand("value")
 
     val newDataFrame = postProcessDf(kafkaDf)
+//      .expand("key")
+      .debugPrintSchema(Some("TopicSourceKafkaSink after post process"))
+      .debugShow(20, 20)
       .cache()
-
     dataFrame = Some(newDataFrame)
     newDataFrame
   }

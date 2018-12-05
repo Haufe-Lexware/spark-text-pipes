@@ -46,6 +46,7 @@ trait TopicSourceEventSourcingTrait extends SparkSessionWrapper with DataFrameHe
   def conf: TopicConf
 
   def preProcessDf(df: DataFrame): DataFrame = {
+
     implicit class PreprocessHelper(df: DataFrame) {
       def uniqueKeyAndTimestamp(keyField: String): DataFrame = {
         conf.kafkaTopic.uniqueEntityKey match {
@@ -67,15 +68,15 @@ trait TopicSourceEventSourcingTrait extends SparkSessionWrapper with DataFrameHe
 
   def postProcessDf(df: DataFrame): DataFrame = {
     df
-      .alsoPrintSchema(Some("TopicSourceEventSourcingTrait before postProcessDf"))
-      .alsoShow(20, 12)
+      .debugPrintSchema(Some("TopicSourceEventSourcingTrait before postProcessDf"))
+      .debugShow(20, 20)
       .groupBy($"unique_entity_key")
       .agg(max($"producer_timestamp") as "producer_timestamp")
       .join(df, Seq("unique_entity_key", "producer_timestamp"))
       .where($"kafka_value_is_null" === false)
       .drop("kafka_value_is_null", "unique_entity_key", "producer_timestamp")
-      .alsoPrintSchema(Some("TopicSourceEventSourcingTrait after postProcessDf"))
-      .alsoShow(20, 12)
+      .debugPrintSchema(Some("TopicSourceEventSourcingTrait after postProcessDf"))
+      .debugShow(20, 20)
   }
 }
 

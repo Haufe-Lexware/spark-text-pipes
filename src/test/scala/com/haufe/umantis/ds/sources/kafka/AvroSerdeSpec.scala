@@ -15,13 +15,20 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers}
 import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.scalatest.Matchers._
 
 
 class AvroSerdeSpec
-  extends SparkSpec with SparkIO with DataFrameAvroHelpers with KafkaExternalServices {
+  extends SparkSpec
+    with SparkIO
+    with DataFrameAvroHelpers
+    with DataFrameJsonHelpers
+    with KafkaExternalServices
+{
+
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -83,19 +90,19 @@ class AvroSerdeSpec
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-      .expand_json("key")
+      .fromInferredJson("key")
       .expand("key")
-      .expand_json("value")
+      .fromInferredJson("value")
       .expand("value")
-      .alsoPrintSchema()
-      .alsoShow()
+      .debugPrintSchema()
+      .debugShow()
 
     val dfToAvroAndBack = df.sqlContext.createDataFrame(df.rdd, df.schema)
       .to_confluent_avro(
         avroSchemaRegistry,
         topic + "-key",
         "key",
-        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
         "TestKey",
         "com.jaumo"
       )
@@ -103,12 +110,12 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-value",
         "value",
-        Array("f1", "f2"),
+        Some(Array("f1", "f2")),
         "TestValue",
         "com.jaumo"
       )
-      .alsoPrintSchema(Some("Avro Serialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Serialized"))
+      .debugShow()
       .from_confluent_avro(
         "key",
         "key",
@@ -123,8 +130,8 @@ class AvroSerdeSpec
       )
       .expand("key")
       .expand("value")
-      .alsoPrintSchema(Some("Avro Deserialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Deserialized"))
+      .debugShow()
 
     assertSmallDataFrameEquality(dfToAvroAndBack, df)
   }
@@ -142,19 +149,19 @@ class AvroSerdeSpec
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-      .expand_json("key")
+      .fromInferredJson("key")
       .expand("key")
-      .expand_json("value")
+      .fromInferredJson("value")
       .expand("value")
-      .alsoPrintSchema()
-      .alsoShow()
+      .debugPrintSchema()
+      .debugShow()
 
     df
       .to_confluent_avro(
         avroSchemaRegistry,
         topic + "-key",
         "key",
-        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
         "TestKey",
         "com.jaumo"
       )
@@ -162,12 +169,12 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-value",
         "value",
-        Array("f1", "f2"),
+        Some(Array("f1", "f2")),
         "TestValue",
         "com.jaumo"
       )
-      .alsoPrintSchema(Some("Avro Serialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Serialized"))
+      .debugShow()
       .write
       .format("kafka")
       .option("kafka.bootstrap.servers", kafkaBroker)
@@ -199,8 +206,8 @@ class AvroSerdeSpec
       .expand("key")
       .expand("value")
       .sort($"f1")
-      .alsoPrintSchema(Some("Avro Deserialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Deserialized"))
+      .debugShow()
 
     assertSmallDataFrameEquality(dfToAvroAndBack, df)
   }

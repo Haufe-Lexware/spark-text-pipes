@@ -52,8 +52,10 @@ trait SinkData extends Source {
         try{
           return doUpdateDf()
         } catch {
-          case _: AnalysisException => Thread.sleep(1000)
-          case _: NoSuchElementException => Thread.sleep(1000)
+          case e: AnalysisException => Thread.sleep(1000)
+            if (retryNr == 30) e.printStackTrace()
+          case e: NoSuchElementException => Thread.sleep(1000)
+            if (retryNr == 30) e.printStackTrace()
         }
       })
 

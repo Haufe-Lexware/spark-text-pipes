@@ -27,22 +27,18 @@ import scala.util.Try
 /** A Kafka Data Source.
   *
   * It creates a Streaming DataFrame (using Spark Structured Streaming) from
-  * a Kafka topic. It deserializes the topic value using an instance of
-  * [[com.databricks.spark.avro.ConfluentSparkAvroUtils]].
+  * a Kafka topic. It deserializes the topic value.
   * Then, it applies a transformation function to the streaming DataFrame. Finally, a
   * Then, it creates a StreamingQuery to sink the Streaming DataFrame to a parquet file.
   * This class provides a method to always return a fresh copy of the processed data.
   * This copy is refreshed every refreshTime seconds.
   *
   */
-class TopicSourceParquetSink(
-                             conf: TopicConf
-                            )
-extends TopicSourceSink(conf)
+class TopicSourceParquetSink(conf: TopicConf) extends TopicSourceSink(conf)
 {
   private var startingOffset: String = "latest"
 
-  var outputSchema: StructType = _
+  private var outputSchema: StructType = _
 
   private def checkParquetOnly(f: () => Unit): this.type = {
     if (isReadOnly) {
@@ -204,13 +200,7 @@ extends TopicSourceSink(conf)
   /**
     * @return Pretty String describing the Avro schema of the associated topic.
     */
-  def schema: Option[String] = {
-    kafkaSerializer.avroUtils match {
-      case Some(utils) =>
-        Try(Some(utils.getAvroSchemaForSubjectPretty(conf.subjectValueName))).getOrElse(None)
-      case _ => None
-    }
-  }
+  def schema: Option[String] = valueSchema
 }
 
 

@@ -44,41 +44,33 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df.select(flattenSchema(df.schema, prefix):_*)
     }
 
-    def expand_json(inputColumn: String, outputColumn: Option[String] = None): DataFrame = {
-      import currentSparkSession.implicits._
-
-      val outputCol = outputColumn match {
-        case Some(c) => c
-        case _ => inputColumn
-      }
-
-      val ds = df.select(inputColumn).as[String]
-      val schema = JsonSchemaInferrer.getJsonSchema(currentSparkSession, ds)
-      df.withColumn(outputCol, from_json(col(inputColumn), schema))
-    }
-
-    def alsoShow(
+    def debugShow(
                   numRows: Int = 20,
                   truncate: Int = 0,
                   vertical: Boolean = false,
                   header: Option[String] = None
-                ): DataFrame = {
-      header match {
-        case Some(s) => println(s"\n$s")
-        case _ =>
-      }
+                )
+    : DataFrame = {
+      if (debugging) {
+        header match {
+          case Some(s) => println(s"\n$s")
+          case _ =>
+        }
 
-      df.show(numRows, truncate, vertical)
+        df.show(numRows, truncate, vertical)
+      }
       df
     }
 
-    def alsoPrintSchema(header: Option[String] = None): DataFrame = {
-      header match {
-        case Some(s) => println(s"\n$s")
-        case _ =>
-      }
+    def debugPrintSchema(header: Option[String] = None): DataFrame = {
+      if (debugging) {
+        header match {
+          case Some(s) => println(s"\n$s")
+          case _ =>
+        }
 
-      df.printSchema()
+        df.printSchema()
+      }
       df
     }
 
