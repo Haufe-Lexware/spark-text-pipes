@@ -20,6 +20,7 @@ package com.haufe.umantis.ds.sources.kafka
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
+import play.api.libs.json.Json
 
 import scala.util.Try
 
@@ -205,9 +206,11 @@ extends TopicSourceSink(conf)
     * @return Pretty String describing the Avro schema of the associated topic.
     */
   def schema: Option[String] = {
-    kafkaSerializer.avroUtils match {
-      case Some(utils) =>
-        Try(Some(utils.getAvroSchemaForSubjectPretty(conf.subjectValueName))).getOrElse(None)
+    kafkaSerializer.schemaRegistry match {
+      case Some(schemaRegistry) =>
+        Try(Some(Json.prettyPrint(Json.parse(
+          kafkaSerializer.getSchema(schemaRegistry, conf.subjectValueName, "latest")
+        )))).getOrElse(None)
       case _ => None
     }
   }

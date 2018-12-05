@@ -11,6 +11,23 @@ import scala.collection.mutable
 
 trait DataFrameAvroHelpers {
 
+  def getSchema(
+                 schemaRegistry: CachedSchemaRegistryClient,
+                 subject: String,
+                 version: String = "latest"
+               )
+  : String = {
+
+    val schemaId =
+      if (version == "latest") {
+        schemaRegistry.getLatestSchemaMetadata(subject).getId
+      } else {
+        schemaRegistry.getSchemaMetadata(subject, version.toInt).getId
+      }
+
+    schemaRegistry.getByID(schemaId).toString
+  }
+
   implicit class DataFrameWithAvroHelpers(df: DataFrame) extends Serializable {
 
     def from_confluent_avro(
@@ -21,18 +38,9 @@ trait DataFrameAvroHelpers {
                              version: String = "latest"
                            )
     : DataFrame = {
+      val schemaRegistry = SchemaRegistryHelper.getSchemaRegistry(schemaRegistryURLs)
 
-      val schemaRegistry = DataFrameAvroHelpers.getSchemaRegistry(schemaRegistryURLs)
-
-      val schemaId =
-        if (version == "latest") {
-          schemaRegistry.getLatestSchemaMetadata(subject).getId
-        } else {
-          schemaRegistry.getSchemaMetadata(subject, version.toInt).getId
-        }
-
-      val schema = schemaRegistry.getByID(schemaId).toString
-      println(schema)
+      val schema = getSchema(schemaRegistry, subject, version)
 
       df.withColumn(outputColumn, from_avro(col(inputColumn), schema))
     }
@@ -54,7 +62,7 @@ trait DataFrameAvroHelpers {
         })
         .map(col)
 
-      val schemaRegistry = DataFrameAvroHelpers.getSchemaRegistry(schemaRegistryURLs)
+      val schemaRegistry = SchemaRegistryHelper.getSchemaRegistry(schemaRegistryURLs)
 
       val schema = SchemaConverters.toAvroType(
         df.select(inputCols: _*).schema,
@@ -72,7 +80,7 @@ trait DataFrameAvroHelpers {
 
 }
 
-object DataFrameAvroHelpers {
+object SchemaRegistryHelper {
   private val cacheCapacity = 256
 
   val avroRegistryClients: mutable.Map[String, CachedSchemaRegistryClient] =

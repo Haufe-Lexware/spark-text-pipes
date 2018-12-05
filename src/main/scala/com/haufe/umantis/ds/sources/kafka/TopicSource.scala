@@ -15,11 +15,11 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
-import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, KafkaDeserializer}
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, KafkaSerde}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.streaming.{DataStreamReader, StreamingQuery, Trigger}
+import org.apache.spark.sql.streaming.{DataStreamReader, Trigger}
 
 
 abstract class TopicSource(
@@ -30,7 +30,7 @@ extends Source with SparkIO with DataFrameHelpers with DataFrameAvroHelpers
   println(s"Creating KafkaDataSource for topic: " +
     s"${conf.kafkaTopic.topic} saved at ${conf.filePath} and ${conf.filePathCheckpoint}")
 
-  val kafkaSerializer = new KafkaDeserializer(conf)
+  val kafkaSerializer = new KafkaSerde(conf)
 
   def preProcessDf(df: DataFrame): DataFrame = {
     df
@@ -40,8 +40,8 @@ extends Source with SparkIO with DataFrameHelpers with DataFrameAvroHelpers
   // "latest"
   // "earliest"
   def getSource(startingOffset: String = "latest"): DataFrame = {
-    import kafkaSerializer._
     import currentSparkSession.implicits._
+    import kafkaSerializer._
 
     implicit class SchemaRegistryHelpersReader(dsr: DataStreamReader) {
 

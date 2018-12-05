@@ -15,11 +15,10 @@
 
 package com.haufe.umantis.ds.sources.kafka.serde
 
-import com.databricks.spark.avro.ConfluentSparkAvroUtils
 import com.haufe.umantis.ds.sources.kafka.{KafkaTopicDataFrameHelper, TopicConf}
 import com.haufe.umantis.ds.spark.DataFrameHelpers
+import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.col
 
 import scala.util.Try
@@ -27,35 +26,39 @@ import scala.util.Try
 
 class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
 
-  lazy val avroUtils: Option[ConfluentSparkAvroUtils] =
+  lazy val schemaRegistry: Option[CachedSchemaRegistryClient] =
     conf.kafkaConf.schemaRegistryURL match {
-      case Some(url) => Some(ConfluentSparkAvroUtils(url))
+      case Some(url) => Some(SchemaRegistryHelper.getSchemaRegistry(url))
       case _ => None
     }
 
-  private lazy val avroKeyDeserializer: Option[UserDefinedFunction] =
-    avroUtils match {
-      case Some(utils) =>
-        Try(Some(utils.deserializerForSubject(conf.subjectKeyName))).getOrElse(None)
+  lazy val keySchema: Option[String] =
+    schemaRegistry match {
+      case Some(sr) =>
+        Try(
+          Some(getSchema(sr, conf.subjectKeyName, "latest"))
+        ).getOrElse(None)
       case _ => None
     }
 
-  private lazy val avroValueDeserializer: Option[UserDefinedFunction] =
-    avroUtils match {
-      case Some(utils) =>
-        Try(Some(utils.deserializerForSubject(conf.subjectValueName))).getOrElse(None)
+  lazy val valueSchema: Option[String] =
+    schemaRegistry match {
+      case Some(sr) =>
+        Try(
+          Some(getSchema(sr, conf.subjectValueName, "latest"))
+        ).getOrElse(None)
       case _ => None
     }
 
   def isKeyAvro: Boolean = {
-    avroKeyDeserializer match {
+    keySchema match {
       case Some(_) => true
       case _ => false
     }
   }
 
   def isValueAvro: Boolean = {
-    avroValueDeserializer match {
+    valueSchema match {
       case Some(_) => true
       case _ => false
     }
@@ -66,14 +69,30 @@ class KafkaSerde(conf: TopicConf) extends DataFrameAvroHelpers {
 
     def deserialize(keyColumn: String, valueColumn: String): DataFrame = {
 
-      val dfTmp = avroKeyDeserializer match {
-        case Some(des) => df.withColumn(keyColumn, des(col(keyColumn)))
-        case _ => df.withColumn(keyColumn, col(keyColumn).cast("string"))
+      val dfWithDeserializedKey = keySchema match {
+        case Some(_) =>
+          df.from_confluent_avro(
+            keyColumn,
+            keyColumn,
+            conf.kafkaConf.schemaRegistryURL.get,
+            conf.subjectKeyName,
+            "latest"
+          )
+        case _ =>
+          df.withColumn(keyColumn, col(keyColumn).cast("string"))
       }
 
-      avroValueDeserializer match {
-        case Some(des) => dfTmp.withColumn(valueColumn, des(col(valueColumn)))
-        case _ => dfTmp.withColumn(valueColumn, col(valueColumn).cast("string"))
+      valueSchema match {
+        case Some(_) =>
+          dfWithDeserializedKey.from_confluent_avro(
+            valueColumn,
+            valueColumn,
+            conf.kafkaConf.schemaRegistryURL.get,
+            conf.subjectValueName,
+            "latest"
+          )
+        case _ =>
+          dfWithDeserializedKey.withColumn(valueColumn, col(valueColumn).cast("string"))
       }
     }
   }
