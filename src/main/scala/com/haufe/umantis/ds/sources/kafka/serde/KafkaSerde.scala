@@ -51,20 +51,6 @@ trait KafkaAvroSerde extends DataFrameAvroHelpers {
         ).getOrElse(None)
       case _ => None
     }
-
-  def isKeyAvro: Boolean = {
-    keySchema match {
-      case Some(_) => true
-      case _ => false
-    }
-  }
-
-  def isValueAvro: Boolean = {
-    valueSchema match {
-      case Some(_) => true
-      case _ => false
-    }
-  }
 }
 
 trait KafkaJsonSerde extends SparkIO {

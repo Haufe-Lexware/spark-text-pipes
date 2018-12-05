@@ -62,7 +62,7 @@ class TopicSourceKafkaSink(
         outputSchema = sourceDf.schema
 
         val s = sourceDf
-          .alsoPrintSchema(Some("TopicSourceKafkaSink before Avro serialization"))
+          .alsoPrintSchema(Some("TopicSourceKafkaSink before serialization"))
           .selectExpr("to_json(struct(*)) AS value")
 //          .to_confluent_avro(
 //          conf.kafkaConf.avroSchemaRegistry,
@@ -70,7 +70,7 @@ class TopicSourceKafkaSink(
 //          outputTopicName + "-value",
 //
 //          )
-          .alsoPrintSchema(Some("TopicSourceKafkaSink after Avro serialization"))
+          .alsoPrintSchema(Some("TopicSourceKafkaSink after serialization"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
