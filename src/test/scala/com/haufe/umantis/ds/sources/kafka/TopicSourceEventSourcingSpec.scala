@@ -35,44 +35,44 @@ import org.apache.spark.sql.functions._
 import scala.sys.process._
 import scala.util.Try
 
-trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
-
-  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
-
-  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
-    val stream: java.io.InputStream =
-      new java.io.ByteArrayInputStream(
-        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
-
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
-      s"--brokers $kafkaBroker",
-      s"--registry $avroSchemaRegistry",
-      s"--keyschema $keyschema",
-      s"--schema $schema",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    command #< stream !!
-  }
-
-  def deleteTopic(topic: String): Unit = {
-    val command = Seq(
-      "/usr/bin/python3",
-      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
-      s"--brokers $kafkaBroker",
-      s"--zookeeper $zookeeper",
-      s"--topic $topic"
-    )
-      .mkString(" ")
-
-    println(command)
-
-    command !!
-  }
-}
+//trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
+//
+//  val kafkaPythonUtilitiesPath = s"${appsRoot}scripts/py-kafka-avro-console"
+//
+//  def sendEvents(keyschema: String, schema: String, topic: String, events: String): String = {
+//    val stream: java.io.InputStream =
+//      new java.io.ByteArrayInputStream(
+//        events.getBytes(java.nio.charset.StandardCharsets.UTF_8.name))
+//
+//    val command = Seq(
+//      "/usr/bin/python3",
+//      s"$kafkaPythonUtilitiesPath/kafka_avro_producer.py",
+//      s"--brokers $kafkaBroker",
+//      s"--registry $avroSchemaRegistry",
+//      s"--keyschema $keyschema",
+//      s"--schema $schema",
+//      s"--topic $topic"
+//    )
+//      .mkString(" ")
+//
+//    command #< stream !!
+//  }
+//
+//  def deleteTopic(topic: String): Unit = {
+//    val command = Seq(
+//      "/usr/bin/python3",
+//      s"$kafkaPythonUtilitiesPath/kafka_delete_topic.py",
+//      s"--brokers $kafkaBroker",
+//      s"--zookeeper $zookeeper",
+//      s"--topic $topic"
+//    )
+//      .mkString(" ")
+//
+//    println(command)
+//
+//    command !!
+//  }
+//}
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
