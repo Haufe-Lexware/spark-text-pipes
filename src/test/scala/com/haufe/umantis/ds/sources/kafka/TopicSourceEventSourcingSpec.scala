@@ -104,16 +104,10 @@ trait TopicSourceEventSourcingSpec
     org.apache.kafka.clients.admin.AdminClient.create(props)
   }
 
-
   /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
   def deleteTopic(topic: String): Unit = {
-//    kafkaZkClient.deleteTopic
-//    val partitions = zkUtils.getPartitionsForTopics(Seq(topic))(topic).size
-//    AdminUtils.deleteTopic(zkUtils, topic)
     import collection.JavaConverters._
       Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
-//    kafka.zk.AdminZkClient
-//    verifyTopicDeletionWithRetries(zkUtils, topic, partitions, List(this.server))
   }
 
   def topic: String

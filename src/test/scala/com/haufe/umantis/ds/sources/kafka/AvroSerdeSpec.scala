@@ -19,10 +19,11 @@ import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
+import org.apache.kafka.clients.admin.AdminClient
 import org.scalatest.Matchers._
 
 import scala.util.Try
+
 
 class AvroSerdeSpec
   extends SparkSpec with SparkIO with DataFrameAvroHelpers {
@@ -41,6 +42,18 @@ class AvroSerdeSpec
 
   val schemaRegistryClient =
     new CachedSchemaRegistryClient(avroSchemaRegistry, 256)
+
+  val adminClient: AdminClient = {
+    val props = new java.util.Properties()
+    props.setProperty("bootstrap.servers", kafkaBroker)
+    org.apache.kafka.clients.admin.AdminClient.create(props)
+  }
+
+  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
+  def deleteTopic(topic: String): Unit = {
+    import collection.JavaConverters._
+    Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
+  }
 
 
   def deleteSubject(subject: String): Unit = {
@@ -93,6 +106,7 @@ class AvroSerdeSpec
     "serialize and deserialize Avro, register and retrieve schemas from the Schema Registry." in {
 
     deleteSubject(topic + "-key")
+    deleteSubject(topic + "-value")
 
     val df = testData
       .split('\n').toSeq
@@ -139,6 +153,82 @@ class AvroSerdeSpec
       )
       .expand("key")
       .expand("value")
+      .alsoPrintSchema(Some("Avro Deserialized"))
+      .alsoShow()
+
+    assertSmallDataFrameEquality(dfToAvroAndBack, df)
+  }
+
+  "DataFrameAvroHelpers" should
+    "serialize and deserialize Avro, register and retrieve schemas from the Schema Registry" +
+      "also when writing to/from Kafka." in {
+
+    deleteSubject(topic + "-key")
+    deleteSubject(topic + "-value")
+    deleteTopic(topic)
+
+    val df = testData
+      .split('\n').toSeq
+      .map(_.split('|'))
+      .map { case Array(f1, f2) => (f1, f2) }
+      .toDF("key", "value")
+      .expand_json("key")
+      .expand("key")
+      .expand_json("value")
+      .expand("value")
+      .alsoPrintSchema()
+      .alsoShow()
+
+    df
+      .to_confluent_avro(
+        avroSchemaRegistry,
+        topic + "-key",
+        "key",
+        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        "TestKey",
+        "com.jaumo"
+      )
+      .to_confluent_avro(
+        avroSchemaRegistry,
+        topic + "-value",
+        "value",
+        Array("f1", "f2"),
+        "TestValue",
+        "com.jaumo"
+      )
+      .alsoPrintSchema(Some("Avro Serialized"))
+      .alsoShow()
+      .write
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("topic", topic)
+      .save()
+
+
+    val dfToAvroAndBack = currentSparkSession
+      .read
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaBroker)
+      .option("subscribe", topic)
+      .option("startingOffsets", "earliest")
+      .option("endingOffsets", "latest")
+      .load()
+      .from_confluent_avro(
+        "key",
+        "key",
+        avroSchemaRegistry,
+        topic + "-key"
+      )
+      .from_confluent_avro(
+        "value",
+        "value",
+        avroSchemaRegistry,
+        topic + "-value"
+      )
+      .select("key", "value")
+      .expand("key")
+      .expand("value")
+      .sort($"f1")
       .alsoPrintSchema(Some("Avro Deserialized"))
       .alsoShow()
 
