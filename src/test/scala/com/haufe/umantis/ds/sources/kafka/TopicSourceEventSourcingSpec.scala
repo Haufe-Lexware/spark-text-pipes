@@ -76,7 +76,8 @@ trait KafkaTest extends SparkIO with TopicSourceEventSourcingSpecFixture {
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with TopicSourceEventSourcingSpecFixture with DataFrameAvroHelpers {
+    with SparkIO with TopicSourceEventSourcingSpecFixture with DataFrameAvroHelpers
+    with KafkaExternalServices {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -97,18 +98,6 @@ trait TopicSourceEventSourcingSpec
 //  val adminZkClient: AdminZkClient = AdminZkClient(kafkaZkClient)
 
 //  val a = org.apache.kafka.clients.admin.AdminClient.create()
-
-  val adminClient: AdminClient = {
-    val props = new java.util.Properties()
-    props.setProperty("bootstrap.servers", kafkaBroker)
-    org.apache.kafka.clients.admin.AdminClient.create(props)
-  }
-
-  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
-  def deleteTopic(topic: String): Unit = {
-    import collection.JavaConverters._
-      Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
-  }
 
   def topic: String
 

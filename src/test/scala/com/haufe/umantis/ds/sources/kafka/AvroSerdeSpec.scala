@@ -17,16 +17,11 @@ package com.haufe.umantis.ds.sources.kafka
 
 import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
-import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
-import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import org.apache.kafka.clients.admin.AdminClient
 import org.scalatest.Matchers._
-
-import scala.util.Try
 
 
 class AvroSerdeSpec
-  extends SparkSpec with SparkIO with DataFrameAvroHelpers {
+  extends SparkSpec with SparkIO with DataFrameAvroHelpers with KafkaExternalServices {
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -39,31 +34,6 @@ class AvroSerdeSpec
     """.stripMargin.trim
 
   val topic = "test.avro.serde"
-
-  val schemaRegistryClient =
-    new CachedSchemaRegistryClient(avroSchemaRegistry, 256)
-
-  val adminClient: AdminClient = {
-    val props = new java.util.Properties()
-    props.setProperty("bootstrap.servers", kafkaBroker)
-    org.apache.kafka.clients.admin.AdminClient.create(props)
-  }
-
-  /** Delete a Kafka topic and wait until it is propagated to the whole cluster */
-  def deleteTopic(topic: String): Unit = {
-    import collection.JavaConverters._
-    Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
-  }
-
-
-  def deleteSubject(subject: String): Unit = {
-    try {
-      val versions = schemaRegistryClient.deleteSubject(subject)
-      println(s"$subject versions deleted $versions")
-    } catch {
-      case e: RestClientException => e.getMessage()
-    }
-  }
 
   "to_avro/from_avro" should "give correct results" in {
     import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
