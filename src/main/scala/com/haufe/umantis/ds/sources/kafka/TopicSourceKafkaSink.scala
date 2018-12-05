@@ -22,14 +22,11 @@ import org.apache.spark.sql.types.StructType
 
 import scala.util.Try
 
-class TopicSourceKafkaSink(
-                            conf: TopicConf
-                          )
-  extends TopicSourceSink(conf)
+class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf)
 {
   private var startingOffset: String = "latest"
 
-  var outputSchema: StructType = _
+  private var outputSchema: StructType = _
 
   val outputTopicName: String = conf.kafkaTopicSink match {
     case Some(tn) => tn.topic

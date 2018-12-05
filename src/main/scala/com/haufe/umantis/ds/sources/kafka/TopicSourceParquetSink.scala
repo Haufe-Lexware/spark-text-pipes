@@ -20,7 +20,6 @@ package com.haufe.umantis.ds.sources.kafka
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructType
-import play.api.libs.json.Json
 
 import scala.util.Try
 
@@ -35,14 +34,11 @@ import scala.util.Try
   * This copy is refreshed every refreshTime seconds.
   *
   */
-class TopicSourceParquetSink(
-                             conf: TopicConf
-                            )
-extends TopicSourceSink(conf)
+class TopicSourceParquetSink(conf: TopicConf) extends TopicSourceSink(conf)
 {
   private var startingOffset: String = "latest"
 
-  var outputSchema: StructType = _
+  private var outputSchema: StructType = _
 
   private def checkParquetOnly(f: () => Unit): this.type = {
     if (isReadOnly) {
