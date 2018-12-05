@@ -15,6 +15,7 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, KafkaDeserializer}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
@@ -24,7 +25,7 @@ import org.apache.spark.sql.streaming.{DataStreamReader, StreamingQuery, Trigger
 abstract class TopicSource(
                             val conf: TopicConf
                           )
-extends Source with SparkIO with DataFrameHelpers
+extends Source with SparkIO with DataFrameHelpers with DataFrameAvroHelpers
 {
   println(s"Creating KafkaDataSource for topic: " +
     s"${conf.kafkaTopic.topic} saved at ${conf.filePath} and ${conf.filePathCheckpoint}")

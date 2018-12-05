@@ -13,13 +13,14 @@
   * along with this program.  If not, see <https://www.gnu.org/licenses/>.
   */
 
-package com.haufe.umantis.ds.sources.kafka
+package com.haufe.umantis.ds.sources.kafka.serde
 
 import com.databricks.spark.avro.ConfluentSparkAvroUtils
+import com.haufe.umantis.ds.sources.kafka.{KafkaTopicDataFrameHelper, TopicConf}
 import com.haufe.umantis.ds.spark.DataFrameHelpers
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.expressions.UserDefinedFunction
+import org.apache.spark.sql.functions.col
 
 import scala.util.Try
 

@@ -15,6 +15,7 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
+import com.haufe.umantis.ds.sources.kafka.serde.DataFrameAvroHelpers
 import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.scalatest.Matchers._
@@ -95,7 +96,7 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-key",
         "key",
-        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
         "TestKey",
         "com.jaumo"
       )
@@ -103,7 +104,7 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-value",
         "value",
-        Array("f1", "f2"),
+        Some(Array("f1", "f2")),
         "TestValue",
         "com.jaumo"
       )
@@ -154,7 +155,7 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-key",
         "key",
-        Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp"),
+        Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
         "TestKey",
         "com.jaumo"
       )
@@ -162,7 +163,7 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-value",
         "value",
-        Array("f1", "f2"),
+        Some(Array("f1", "f2")),
         "TestValue",
         "com.jaumo"
       )

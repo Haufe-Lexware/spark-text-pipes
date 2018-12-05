@@ -17,6 +17,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
+import com.haufe.umantis.ds.sources.kafka.serde.DataFrameAvroHelpers
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
