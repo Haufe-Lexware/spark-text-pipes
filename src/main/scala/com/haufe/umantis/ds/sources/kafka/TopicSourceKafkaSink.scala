@@ -22,8 +22,7 @@ import org.apache.spark.sql.types.StructType
 
 import scala.util.Try
 
-class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf)
-{
+class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
   private var startingOffset: String = "latest"
 
   private var outputSchema: StructType = _
@@ -54,19 +53,19 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf)
 
     sink =
       try {
-        val sourceDf = getSource("earliest")//startingOffset)
+        val sourceDf = getSource("earliest") //startingOffset)
 
         outputSchema = sourceDf.schema
 
         val s = sourceDf
           .alsoPrintSchema(Some("TopicSourceKafkaSink before serialization"))
-          .selectExpr("to_json(struct(*)) AS value")
-//          .to_confluent_avro(
-//          conf.kafkaConf.avroSchemaRegistry,
-//            "value",
-//          outputTopicName + "-value",
-//
-//          )
+          .serialize(
+            "key",
+            "value",
+            Some(sourceDf.columns.filter(_ != "key")),
+            outputTopicName
+          )
+          //          .selectExpr("to_json(struct(*)) AS value")
           .alsoPrintSchema(Some("TopicSourceKafkaSink after serialization"))
           .writeStream
           .outputMode("append")
@@ -127,6 +126,7 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf)
 
   /**
     * Returns a Map of the current DataFrame size. It returns "fail" if not available.
+    *
     * @return The status
     */
   def status(): Map[String, String] = {
@@ -145,34 +145,42 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf)
   }
 
   def doUpdateDf(): DataFrame = {
-    import currentSparkSession.implicits._
 
     println("TopicSourceKafkaSink read before postprocessdf")
-    val kafkaDf = currentSparkSession
-      .read
-      .format("kafka")
+//    try {
+      val kafkaDf = currentSparkSession
+        .read
+        .format("kafka")
 
-      // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
-      // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
-//      .option("kafka.retries", 100)
+        // Trying to solve Kafka's error "This server is not the leader for that topic-partition"
+        // https://stackoverflow.com/questions/47767169/kafka-this-server-is-not-the-leader-for-that-topic-partition
+        //      .option("kafka.retries", 100)
 
-      .options(options)
-      .option("startingOffsets", "earliest")
-      .option("subscribe", outputTopicName)
-      .load()
-      .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
-      .alsoShow(20, 12)
-      .select("value")
-      .withColumn("value", $"value".cast("string"))
-      .withColumn("value", from_json($"value", outputSchema))
-      .expand("value")
-      .repartition(conf.sinkConf.numPartitions)
-      .alsoShow(20, 12)
+        .options(options)
+        .option("startingOffsets", "earliest")
+        .option("subscribe", outputTopicName)
+        .load()
+        .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
+        .alsoShow(20, 12)
+        .deserialize("key", "value")
+        //      .select("value")
+        //      .withColumn("value", $"value".cast("string"))
+        //      .withColumn("value", from_json($"value", outputSchema))
+        .expand("value")
+        //.repartition(conf.sinkConf.numPartitions)
+        .alsoShow(20, 12)
 
     val newDataFrame = postProcessDf(kafkaDf)
       .cache()
+      dataFrame = Some(newDataFrame)
+      newDataFrame
 
-    dataFrame = Some(newDataFrame)
-    newDataFrame
+//    } catch {
+//      case e: Exception => e.printStackTrace()
+//        System.exit(0)
+//        import currentSparkSession.implicits._
+//        Seq(1, 2).toDF()
+//    }
+
   }
 }
