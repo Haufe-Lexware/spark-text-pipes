@@ -15,14 +15,20 @@
 
 package com.haufe.umantis.ds.sources.kafka
 
-import com.haufe.umantis.ds.sources.kafka.serde.DataFrameAvroHelpers
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers}
 import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.scalatest.Matchers._
 
 
 class AvroSerdeSpec
-  extends SparkSpec with SparkIO with DataFrameAvroHelpers with KafkaExternalServices {
+  extends SparkSpec
+    with SparkIO
+    with DataFrameAvroHelpers
+    with DataFrameJsonHelpers
+    with KafkaExternalServices
+{
+
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")

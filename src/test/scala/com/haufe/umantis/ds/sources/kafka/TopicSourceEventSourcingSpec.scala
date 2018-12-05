@@ -17,7 +17,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
-import com.haufe.umantis.ds.sources.kafka.serde.DataFrameAvroHelpers
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
@@ -28,7 +28,9 @@ import org.scalatest.Matchers._
 
 trait TopicSourceEventSourcingSpec
   extends SparkSpec
-    with SparkIO with TopicSourceEventSourcingSpecFixture with DataFrameAvroHelpers
+    with SparkIO
+    with TopicSourceEventSourcingSpecFixture
+    with DataFrameAvroHelpers
     with KafkaExternalServices {
   import currentSparkSession.implicits._
 
@@ -158,7 +160,12 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
 }
 
 
-trait TopicSourceEventSourcingSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
+trait TopicSourceEventSourcingSpecFixture
+  extends SparkSessionWrapper
+    with DataFrameHelpers
+    with DataFrameJsonHelpers
+{
+
   import currentSparkSession.implicits._
 
   def fixture(data: Seq[(String, Int)]): DataFrame = {
