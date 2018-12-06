@@ -24,7 +24,7 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{LongType, StructField, StructType}
 import org.scalatest.BeforeAndAfter
 
-class TopicSourceKafkaSinkSpec extends SparkSpec
+class TopicSourceKafkaSinkJsonSpec extends SparkSpec
   with SparkIO with KafkaExternalServices with TopicSourceKafkaSinkSpecFixture with BeforeAndAfter {
   import currentSparkSession.implicits._
 

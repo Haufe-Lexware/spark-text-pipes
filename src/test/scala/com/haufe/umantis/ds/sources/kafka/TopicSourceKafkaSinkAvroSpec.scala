@@ -96,7 +96,7 @@ class TopicSourceKafkaSinkAvroSpec extends SparkSpec
     // here we read from the input topic, we triple the column "num"
     // and write back to the output topic
     ts.reset()
-    sleep(10)
+    sleep(5)
 
     // let's read back the output topic using batch
     val result = ts.data
@@ -114,18 +114,18 @@ class TopicSourceKafkaSinkAvroSpec extends SparkSpec
     assertSmallDataFrameEquality(result, expectedResult)
 
     ts.stop()
-//    ts.delete()
-//    deleteTopic(inputTopic)
-//    deleteTopic(outputTopic)
-//    deleteSubject(inputTopic + "-value")
-//    deleteSubject(outputTopic + "-value")
+    ts.delete()
+    deleteTopic(inputTopic)
+    deleteTopic(outputTopic)
+    deleteSubject(inputTopic + "-value")
+    deleteSubject(outputTopic + "-value")
   }
 
   after {
-//    deleteTopic(inputTopic)
-//    deleteTopic(outputTopic)
-//    deleteSubject(inputTopic + "-value")
-//    deleteSubject(outputTopic + "-value")
+    deleteTopic(inputTopic)
+    deleteTopic(outputTopic)
+    deleteSubject(inputTopic + "-value")
+    deleteSubject(outputTopic + "-value")
   }
 }
 
