@@ -90,9 +90,9 @@ class AvroSerdeSpec
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-      .expand_json("key")
+      .fromInferredJson("key")
       .expand("key")
-      .expand_json("value")
+      .fromInferredJson("value")
       .expand("value")
       .alsoPrintSchema()
       .alsoShow()
@@ -149,9 +149,9 @@ class AvroSerdeSpec
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-      .expand_json("key")
+      .fromInferredJson("key")
       .expand("key")
-      .expand_json("value")
+      .fromInferredJson("value")
       .expand("value")
       .alsoPrintSchema()
       .alsoShow()

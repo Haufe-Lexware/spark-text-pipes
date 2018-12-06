@@ -56,52 +56,71 @@ trait KafkaAvroSerde extends DataFrameAvroHelpers {
 trait KafkaJsonSerde extends SparkIO with DataFrameJsonHelpers {
   def conf: TopicConf
 
-  def deserializeJsonInKafkaStream(
-                                    df: DataFrame,
-                                    inputColumn: String,
-                                    outputColumn: String
-                                  )
-  : DataFrame = {
-    // Payload is serialized using JSON, Spark cannot infer the schema.
-    // To infer the schema, we read a couple of messages, write them to a JSON file,
-    // infer the schema from JSON, and finally define the stream of the normal query
+  implicit class KafkaJsonSerdeHelpers(df: DataFrame) extends Serializable {
+    def deserializeJson(
+                         inputColumn: String,
+                         outputColumn: Option[String] = None
+                       )
+    : DataFrame = {
+      if (df.isStreaming) {
+        df.deserializeJsonInKafkaStream(inputColumn, outputColumn)
+      } else {
+        df.fromInferredJson(inputColumn, outputColumn)
+      }
+    }
 
-    val tmpFilename = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}"
-    val tmpFilenameCheckpoint = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Checkpoint"
-    val tmpFilenameJson = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Json"
+    def deserializeJsonInKafkaStream(
+                                      inputColumn: String,
+                                      outputColumn: Option[String] = None
+                                    )
+    : DataFrame = {
+      // Payload is serialized using JSON, Spark cannot infer the schema.
+      // To infer the schema, we read a couple of messages, write them to a JSON file,
+      // infer the schema from JSON, and finally define the stream of the normal query
 
-    // let's ensure these temp filename do not exist
-    deleteFile(tmpFilename)
-    deleteFile(tmpFilenameCheckpoint)
-    deleteFile(tmpFilenameJson)
+      val tmpFilename = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}"
+      val tmpFilenameCheckpoint = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Checkpoint"
+      val tmpFilenameJson = s"$kafkaParquetsDir/tmp/${conf.kafkaTopic.topic}_Json"
 
-    // we use Structured Streaming, as to use batches we should know the Kafka offsets
-    // which are not easy to get from Spark
-    df
-      .select(inputColumn)
-      .writeStream
-      .outputMode("append")
-      .option("checkpointLocation", tmpFilenameCheckpoint)
-      .format("parquet")
-      .trigger(Trigger.Once)
-      .start(tmpFilename)
-      .awaitTermination()
+      // let's ensure these temp filename do not exist
+      deleteFile(tmpFilename)
+      deleteFile(tmpFilenameCheckpoint)
+      deleteFile(tmpFilenameJson)
 
-    // Reading the parquet file and writing it again to JSON
-    currentSparkSession
-      .read
-      .parquet(tmpFilename)
-      .write
-      .mode("overwrite")
-      .format("text")
-      .save(tmpFilenameJson)
+      // we use Structured Streaming, as to use batches we should know the Kafka offsets
+      // which are not easy to get from Spark
+      df
+        .select(inputColumn)
+        .writeStream
+        .outputMode("append")
+        .option("checkpointLocation", tmpFilenameCheckpoint)
+        .format("parquet")
+        .trigger(Trigger.Once)
+        .start(tmpFilename)
+        .awaitTermination()
 
-    // Finally inferring the schema
-    val jsonSchema = currentSparkSession.read.json(tmpFilenameJson).schema
+      // Reading the parquet file and writing it again to JSON
+      df.sparkSession
+        .read
+        .parquet(tmpFilename)
+        .write
+        .mode("overwrite")
+        .format("text")
+        .save(tmpFilenameJson)
 
-    df
-      .withColumn(outputColumn, from_json(col(inputColumn), jsonSchema))
+      // Finally inferring the schema
+      val jsonSchema = df.sparkSession.read.json(tmpFilenameJson).schema
+
+      val outputCol = outputColumn match {
+        case Some(c) => c
+        case _ => inputColumn
+      }
+
+      df
+        .withColumn(outputCol, from_json(col(inputColumn), jsonSchema))
+    }
   }
+
 }
 
 
@@ -112,7 +131,8 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
 
     def deserialize(
                      keyColumn: String,
-                     valueColumn: String
+                     valueColumn: String,
+                     topic: String
                    )
     : DataFrame = {
 
@@ -123,18 +143,13 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
               keyColumn,
               keyColumn,
               conf.kafkaConf.schemaRegistryURL.get,
-              conf.subjectKeyName,
+              topic + "-key",
               "latest"
             )
         case _ =>
-          val newDf = df
+          df
             .withColumn(keyColumn, col(keyColumn).cast("string"))
-
-          if (newDf.isStreaming) {
-            deserializeJsonInKafkaStream(newDf, keyColumn, keyColumn)
-          } else {
-            newDf.expand_json(keyColumn)
-          }
+            .deserializeJson(keyColumn)
       }
 
       valueSchema match {
@@ -144,18 +159,13 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
               valueColumn,
               valueColumn,
               conf.kafkaConf.schemaRegistryURL.get,
-              conf.subjectValueName,
+              topic + "-value",
               "latest"
             )
         case _ =>
-          val newDf = dfWithDeserializedKey
+          dfWithDeserializedKey
             .withColumn(valueColumn, col(valueColumn).cast("string"))
-
-          if (newDf.isStreaming) {
-            deserializeJsonInKafkaStream(newDf, valueColumn, valueColumn)
-          } else {
-            newDf.expand_json(valueColumn)
-          }
+            .deserializeJson(valueColumn)
       }
     }
 

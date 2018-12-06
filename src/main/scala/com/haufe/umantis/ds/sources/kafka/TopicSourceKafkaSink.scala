@@ -79,8 +79,8 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
         Some(s)
 
       } catch {
-        case _: RestClientException =>
-          // e.printStackTrace()
+        case e: RestClientException =>
+          e.printStackTrace()
           println(s"### TOPIC ${conf.kafkaTopic.topic} NOT FOUND IN KAFKA!!! ###")
           None
       }
@@ -161,7 +161,7 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
       .load()
       .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
       .alsoShow(20, 12)
-      .deserialize("key", "value")
+      .deserialize("key", "value", outputTopicName)
       .expand("value")
       .repartition(conf.sinkConf.numPartitions)
       .alsoShow(20, 12)

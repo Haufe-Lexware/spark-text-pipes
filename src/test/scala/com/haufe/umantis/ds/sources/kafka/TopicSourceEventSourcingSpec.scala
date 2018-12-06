@@ -189,8 +189,8 @@ trait TopicSourceEventSourcingSpecFixture
       .map(_.split('|'))
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
-      .expand_json("key")
-      .expand_json("value")
+      .fromInferredJson("key")
+      .fromInferredJson("value")
       .alsoPrintSchema(None)
       .alsoShow()
       .withColumn("key", to_avro($"key"))
