@@ -17,7 +17,7 @@ package com.haufe.umantis.ds.sources.kafka
 
 
 import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
-import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers}
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers, KafkaSerde}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
@@ -32,6 +32,7 @@ trait TopicSourceEventSourcingSpec
     with TopicSourceEventSourcingSpecFixture
     with DataFrameAvroHelpers
     with KafkaExternalServices {
+
   import currentSparkSession.implicits._
 
   currentSparkSession.sparkContext.setLogLevel("WARN")
@@ -39,28 +40,33 @@ trait TopicSourceEventSourcingSpec
   def topic: String
 
   def kafkaConf: KafkaConf = KafkaConf(kafkaBroker, Some(avroSchemaRegistry))
+
   def topicName =
     new GenericTopicName(
       topic, "value", Some(GenericUniqueIdentityKeys.EntityAndTimestampFromAvroKeyUDF))
-  def transformationFunction: DataFrame => DataFrame = {df => df}
-//  def transformationFunction: DataFrame => DataFrame = {df =>
-//    df
-//      .transformWithPipeline(
-//        DsPipeline(
-//          DsPipelineInput(
-//            ColnamesText("f1"),
-//            StandardPipeline.TextDataPreprocessing
-//          )
-//        ).pipeline
-//      )
-//  }
-  def sinkConf = SinkConf(transformationFunction, refreshTime = 1 /* seconds */, numPartitions = 4)
+
+  def transformationFunction: DataFrame => DataFrame = { df => df }
+
+  //  def transformationFunction: DataFrame => DataFrame = {df =>
+  //    df
+  //      .transformWithPipeline(
+  //        DsPipeline(
+  //          DsPipelineInput(
+  //            ColnamesText("f1"),
+  //            StandardPipeline.TextDataPreprocessing
+  //          )
+  //        ).pipeline
+  //      )
+  //  }
+  def sinkConf = SinkConf(transformationFunction, refreshTime = 1 /* seconds */ , numPartitions = 4)
+
   def conf = TopicConf(kafkaConf, topicName, sinkConf)
+
   def ts: TopicSourceSink
 
   def sendEvents(events: String): Unit = {
     println($"sending events to $topic:\n$events")
-//    sendEvents(keyschema, schema, topic, events)
+    //    sendEvents(keyschema, schema, topic, events)
     toDF(events)
       .write
       .format("kafka")
@@ -82,11 +88,13 @@ trait TopicSourceEventSourcingSpec
   def sleep(seconds: Int): Unit = Thread.sleep(seconds * 1000)
 
   def currentDf: DataFrame = ts.data.sort($"f1")
+
   def show(): Unit = {
     currentDf.columns.foreach(c => println(c))
-//    currentDf.select("key").show()
+    //    currentDf.select("key").show()
     currentDf.show(20, 100)
   }
+
   def values: DataFrame = currentDf.select("f1", "f2")
 
   def doTest(): Unit = {
@@ -142,7 +150,9 @@ class TopicSourceParquetSinkEventSourcingSpec extends TopicSourceEventSourcingSp
   override val ts = new TopicSourceParquetSinkEventSourcing(conf)
 
   "TopicSourceParquetSinkEventSourcing" should
-    "get data from kafka, including updates, deletes, and resets." in { doTest() }
+    "get data from kafka, including updates, deletes, and resets." in {
+    doTest()
+  }
 }
 
 class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
@@ -152,10 +162,26 @@ class TopicSourceKafkaSinkEventSourcingSpec extends TopicSourceEventSourcingSpec
   override val ts = new TopicSourceKafkaSinkEventSourcing(conf)
 
   "TopicSourceKafkaSinkEventSourcing" should
-    "get data from kafka, including updates, deletes, and resets." in { doTest() }
+    "get data from kafka, including updates, deletes, and resets." in {
+    doTest()
+  }
+
+  before {
+    deleteTopic(topic)
+    deleteTopic(ts.outputTopicName)
+    deleteSubject(topic + "-key")
+    deleteSubject(topic + "-value")
+    deleteSubject(ts.outputTopicName + "-key")
+    deleteSubject(ts.outputTopicName + "-value")
+  }
 
   after {
+    deleteTopic(topic)
     deleteTopic(ts.outputTopicName)
+    deleteSubject(topic + "-key")
+    deleteSubject(topic + "-value")
+    deleteSubject(ts.outputTopicName + "-key")
+    deleteSubject(ts.outputTopicName + "-value")
   }
 }
 
@@ -164,9 +190,11 @@ trait TopicSourceEventSourcingSpecFixture
   extends SparkSessionWrapper
     with DataFrameHelpers
     with DataFrameJsonHelpers
-{
+    with KafkaSerde {
 
   import currentSparkSession.implicits._
+
+  def topic: String
 
   def fixture(data: Seq[(String, Int)]): DataFrame = {
     data
@@ -180,8 +208,8 @@ trait TopicSourceEventSourcingSpecFixture
   val df3: DataFrame = fixture(Seq(("A", 10), ("B", 11)))
   val df4: DataFrame = fixture(Seq(("D", 7), ("E", 8), ("F", 9)))
 
-  val keyschema = """{"name":"key","type":"record","fields":[{"name":"service_name","type":"string"},{"name":"tenant_id","type":"string"},{"name":"identity_id","type":"string"},{"name":"entity_id","type":"string"},{"name":"timestamp","type":"long","logicalType":"timestamp-millis"}]}"""
-  val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
+//  val keyschema = """{"name":"key","type":"record","fields":[{"name":"service_name","type":"string"},{"name":"tenant_id","type":"string"},{"name":"identity_id","type":"string"},{"name":"entity_id","type":"string"},{"name":"timestamp","type":"long","logicalType":"timestamp-millis"}]}"""
+//  val schema = """{"type":"record","name":"myrecord","fields":[{"name":"f1","type":"string"},{"name":"f2","type":"int"}]}"""
 
   def toDF(strDf: String): DataFrame = {
     val df = strDf
@@ -190,11 +218,19 @@ trait TopicSourceEventSourcingSpecFixture
       .map { case Array(f1, f2) => (f1, f2) }
       .toDF("key", "value")
       .fromInferredJson("key")
+      .expand("key")
       .fromInferredJson("value")
-      .alsoPrintSchema(None)
+      .expand("value")
+      .alsoPrintSchema(Some("fixture"))
       .alsoShow()
-      .withColumn("key", to_avro($"key"))
-      .withColumn("value", to_avro($"value"))
+      .serialize(
+        Some("key"),
+        Some(Array("service_name", "tenant_id", "identity_id", "entity_id", "timestamp")),
+        "value",
+        Some(Array("f1", "f2")),
+        topic
+      )
+      .alsoPrintSchema(Some("fixture2"))
       .alsoShow()
 
     df.sqlContext.createDataFrame(df.rdd, df.schema)

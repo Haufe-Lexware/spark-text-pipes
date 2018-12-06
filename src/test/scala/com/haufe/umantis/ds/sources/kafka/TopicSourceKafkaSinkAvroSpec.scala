@@ -84,7 +84,7 @@ class TopicSourceKafkaSinkAvroSpec extends SparkSpec
     // writing to kafka batch (no streaming)
     df
       .alsoPrintSchema(Some("fixture"))
-      .serialize("", "value", Some(df.columns), inputTopic)
+      .serialize(None, None, "value", Some(df.columns), inputTopic)
       .alsoPrintSchema(Some("input"))
       .alsoShow()
       .write

@@ -57,15 +57,21 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
 
         outputSchema = sourceDf.schema
 
+        val keyCol: Option[String] =
+          if (sourceDf.columns.contains("key"))
+            Some("key")
+          else
+            None
+
         val s = sourceDf
           .alsoPrintSchema(Some("TopicSourceKafkaSink before serialization"))
           .serialize(
-            "key",
+            keyCol,
+            Some(Array("key")),
             "value",
             Some(sourceDf.columns.filter(_ != "key")),
             outputTopicName
           )
-          //          .selectExpr("to_json(struct(*)) AS value")
           .alsoPrintSchema(Some("TopicSourceKafkaSink after serialization"))
           .writeStream
           .outputMode("append")

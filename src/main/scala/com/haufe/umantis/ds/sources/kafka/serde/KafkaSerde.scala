@@ -170,7 +170,8 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
     }
 
     def serialize(
-                   keyColumn: String,
+                   outputKeyColumn: Option[String],
+                   keyColumns: Option[Array[String]],
                    outputValueColumn: String,
                    valueColumns: Option[Array[String]],
                    outputTopicName: String
@@ -178,22 +179,23 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
     : DataFrame = {
 
       val dfWithSerializedKey =
-        if (df.columns.contains(keyColumn)) {
-          conf.kafkaConf.schemaRegistryURL match {
-            case Some(schemaRegistryURL) =>
-              df
-                .to_confluent_avro(
-                  schemaRegistryURL,
-                  outputTopicName + "-key",
-                  keyColumn,
-                  Some(Array(keyColumn))
-                )
-            case _ =>
-              df.withColumn(keyColumn, to_json(col(keyColumn)))
-          }
+        outputKeyColumn match {
+          case Some(keyCol) =>
+            conf.kafkaConf.schemaRegistryURL match {
+              case Some(schemaRegistryURL) =>
+                df
+                  .to_confluent_avro(
+                    schemaRegistryURL,
+                    outputTopicName + "-key",
+                    keyCol,
+                    keyColumns
+                  )
+              case _ =>
+                df.withColumn(keyCol, to_json(col(keyCol)))
+            }
+          case _ =>
+            df
         }
-        else
-          df
 
       conf.kafkaConf.schemaRegistryURL match {
         case Some(schemaRegistryURL) =>
@@ -210,7 +212,7 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
               case Some(cols) => cols
               case _ => dfWithSerializedKey.columns
             })
-              .filter(_ != keyColumn)
+              .filter(_ != outputKeyColumn)
 
           println(s"valueCols = $valueCols")
 
