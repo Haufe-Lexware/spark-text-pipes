@@ -130,43 +130,56 @@ trait KafkaSerde extends KafkaAvroSerde with KafkaJsonSerde {
     extends DataFrameHelpers with KafkaTopicDataFrameHelper {
 
     def deserialize(
-                     keyColumn: String,
-                     valueColumn: String,
+                     keyColumn: Option[String] = None,
+                     valueColumn: Option[String] = None,
                      topic: String
                    )
     : DataFrame = {
 
-      val dfWithDeserializedKey = keySchema match {
-        case Some(_) =>
-          df
-            .from_confluent_avro(
-              keyColumn,
-              keyColumn,
-              conf.kafkaConf.schemaRegistryURL.get,
-              topic + "-key",
-              "latest"
-            )
-        case _ =>
-          df
-            .withColumn(keyColumn, col(keyColumn).cast("string"))
-            .deserializeJson(keyColumn)
+      val dfWithDeserializedKey = keyColumn match {
+
+        case Some(keyCol) =>
+
+          keySchema match {
+            case Some(_) =>
+              df
+                .from_confluent_avro(
+                  keyCol,
+                  keyCol,
+                  conf.kafkaConf.schemaRegistryURL.get,
+                  topic + "-key",
+                  "latest"
+                )
+            case _ =>
+              df
+                .withColumn(keyCol, col(keyCol).cast("string"))
+                .deserializeJson(keyCol)
+          }
+
+        case _ => df
       }
 
-      valueSchema match {
-        case Some(_) =>
-          dfWithDeserializedKey
-            .from_confluent_avro(
-              valueColumn,
-              valueColumn,
-              conf.kafkaConf.schemaRegistryURL.get,
-              topic + "-value",
-              "latest"
-            )
-        case _ =>
-          dfWithDeserializedKey
-            .withColumn(valueColumn, col(valueColumn).cast("string"))
-            .deserializeJson(valueColumn)
+      valueColumn match {
+        case Some(valueCol) =>
+          valueSchema match {
+            case Some(_) =>
+              dfWithDeserializedKey
+                .from_confluent_avro(
+                  valueCol,
+                  valueCol,
+                  conf.kafkaConf.schemaRegistryURL.get,
+                  topic + "-value",
+                  "latest"
+                )
+            case _ =>
+              dfWithDeserializedKey
+                .withColumn(valueCol, col(valueCol).cast("string"))
+                .deserializeJson(valueCol)
+          }
+
+        case _ => dfWithDeserializedKey
       }
+
     }
 
     def serialize(

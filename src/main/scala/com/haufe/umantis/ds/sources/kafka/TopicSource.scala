@@ -59,11 +59,13 @@ abstract class TopicSource(val conf: TopicConf)
       .option("subscribe", conf.kafkaTopic.topic)
       .load()
       .alsoPrintSchema(Some("TopicSource raw"))
-      .deserialize("key", "value", conf.kafkaTopic.topic)
-      .alsoPrintSchema(Some("TopicSource after deserialization"))
+      .deserialize(keyColumn = Some("key"), valueColumn = Some("value"), topic = conf.kafkaTopic.topic)
+      .expand("value")
+      .alsoPrintSchema(Some("TopicSource after key deserialization"))
 
     val preprocessedDf = preProcessDf(deserializedDf)
-      .expand("value")
+//      .deserialize(valueColumn = Some("value"), topic = conf.kafkaTopic.topic)
+      .alsoPrintSchema(Some("TopicSource after value deserialization"))
 
     conf.sinkConf.transformationFunction(preprocessedDf)
   }

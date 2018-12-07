@@ -55,12 +55,12 @@ trait DataFrameAvroHelpers {
                          )
     : DataFrame = {
 
-      val inputCols =
-        (inputColumns match {
+      val inputColsNames = inputColumns match {
           case Some(cols) => cols
           case _ => df.columns
-        })
-        .map(col)
+        }
+
+      val inputCols = inputColsNames.map(col)
 
       val schemaRegistry = SchemaRegistryHelper.getSchemaRegistry(schemaRegistryURLs)
 
@@ -74,7 +74,7 @@ trait DataFrameAvroHelpers {
       val dfWithAvroCol = df.withColumn(outputColumn, to_avro(struct(inputCols: _*)))
 
       // dropping all inputColumns
-      inputCols.foldLeft(dfWithAvroCol)((dataframe, column) => dataframe.drop(column))
+      dfWithAvroCol.drop(inputColsNames.filter(_ != outputColumn): _*)
     }
   }
 

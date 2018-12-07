@@ -66,10 +66,10 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
         val s = sourceDf
           .alsoPrintSchema(Some("TopicSourceKafkaSink before serialization"))
           .serialize(
-            keyCol,
-            Some(Array("key")),
+            None,
+            None,
             "value",
-            Some(sourceDf.columns.filter(_ != "key")),
+            Some(sourceDf.columns), // .filter(_ != "key")
             outputTopicName
           )
           .alsoPrintSchema(Some("TopicSourceKafkaSink after serialization"))
@@ -166,13 +166,15 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
       .option("subscribe", outputTopicName)
       .load()
       .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
-      .alsoShow(20, 12)
-      .deserialize("key", "value", outputTopicName)
-      .expand("value")
+      .alsoShow(20, 20)
       .repartition(conf.sinkConf.numPartitions)
-      .alsoShow(20, 12)
+      .deserialize(valueColumn = Some("value"), topic = outputTopicName)
+      .expand("value")
 
     val newDataFrame = postProcessDf(kafkaDf)
+//      .expand("key")
+      .alsoPrintSchema(Some("TopicSourceKafkaSink after post process"))
+      .alsoShow(20, 20)
       .cache()
     dataFrame = Some(newDataFrame)
     newDataFrame
