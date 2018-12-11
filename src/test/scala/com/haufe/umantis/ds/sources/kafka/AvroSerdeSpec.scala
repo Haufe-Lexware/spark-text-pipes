@@ -94,8 +94,8 @@ class AvroSerdeSpec
       .expand("key")
       .fromInferredJson("value")
       .expand("value")
-      .alsoPrintSchema()
-      .alsoShow()
+      .debugPrintSchema()
+      .debugShow()
 
     val dfToAvroAndBack = df.sqlContext.createDataFrame(df.rdd, df.schema)
       .to_confluent_avro(
@@ -114,8 +114,8 @@ class AvroSerdeSpec
         "TestValue",
         "com.jaumo"
       )
-      .alsoPrintSchema(Some("Avro Serialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Serialized"))
+      .debugShow()
       .from_confluent_avro(
         "key",
         "key",
@@ -130,8 +130,8 @@ class AvroSerdeSpec
       )
       .expand("key")
       .expand("value")
-      .alsoPrintSchema(Some("Avro Deserialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Deserialized"))
+      .debugShow()
 
     assertSmallDataFrameEquality(dfToAvroAndBack, df)
   }
@@ -153,8 +153,8 @@ class AvroSerdeSpec
       .expand("key")
       .fromInferredJson("value")
       .expand("value")
-      .alsoPrintSchema()
-      .alsoShow()
+      .debugPrintSchema()
+      .debugShow()
 
     df
       .to_confluent_avro(
@@ -173,8 +173,8 @@ class AvroSerdeSpec
         "TestValue",
         "com.jaumo"
       )
-      .alsoPrintSchema(Some("Avro Serialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Serialized"))
+      .debugShow()
       .write
       .format("kafka")
       .option("kafka.bootstrap.servers", kafkaBroker)
@@ -206,8 +206,8 @@ class AvroSerdeSpec
       .expand("key")
       .expand("value")
       .sort($"f1")
-      .alsoPrintSchema(Some("Avro Deserialized"))
-      .alsoShow()
+      .debugPrintSchema(Some("Avro Deserialized"))
+      .debugShow()
 
     assertSmallDataFrameEquality(dfToAvroAndBack, df)
   }

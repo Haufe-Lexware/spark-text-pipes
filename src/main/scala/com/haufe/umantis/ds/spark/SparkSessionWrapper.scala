@@ -37,13 +37,16 @@ trait SparkSessionWrapper {
     sparkConf.getString("spark-configuration.master")
   }
 
+  lazy val testing: Boolean = Try(
+    sys.env.getOrElse("TESTING", "false").toBoolean
+  ).getOrElse(false)
+
+  lazy val debugging: Boolean = Try(
+    sys.env.getOrElse("DEBUGGING", "false").toBoolean
+  ).getOrElse(false)
+
   lazy val currentSparkSession: SparkSession = {
-    val master: String =
-      sys.env.get("TESTING") match {
-        case Some(value) =>
-          if (Try(value.toBoolean).getOrElse(false)) localMaster else clusterMaster
-        case _ => clusterMaster
-      }
+    val master: String = if (testing) localMaster else clusterMaster
 
     val conf = new SparkConf(true)
       .setMaster(master)

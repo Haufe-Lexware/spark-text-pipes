@@ -233,8 +233,8 @@ trait TopicSourceEventSourcingSpecFixture
   def toDF(data: Seq[(TestKafkaKey, TestKafkaValue)]): DataFrame = {
     val df = data
       .toDF("key", "value")
-      .alsoPrintSchema(Some("fixture"))
-      .alsoShow()
+      .debugPrintSchema(Some("fixture"))
+      .debugShow()
       .expand("key")
       .serialize(
         Some("key"),
@@ -243,8 +243,8 @@ trait TopicSourceEventSourcingSpecFixture
         Some(Array("value")),
         topic
       )
-      .alsoPrintSchema(Some("fixture2"))
-      .alsoShow()
+      .debugPrintSchema(Some("fixture2"))
+      .debugShow()
 
     df.sqlContext.createDataFrame(df.rdd, df.schema)
   }

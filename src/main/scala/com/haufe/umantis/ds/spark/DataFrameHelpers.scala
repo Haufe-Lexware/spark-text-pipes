@@ -44,28 +44,33 @@ trait DataFrameHelpers extends SparkSessionWrapper {
       df.select(flattenSchema(df.schema, prefix):_*)
     }
 
-    def alsoShow(
+    def debugShow(
                   numRows: Int = 20,
                   truncate: Int = 0,
                   vertical: Boolean = false,
                   header: Option[String] = None
-                ): DataFrame = {
-      header match {
-        case Some(s) => println(s"\n$s")
-        case _ =>
-      }
+                )
+    : DataFrame = {
+      if (debugging) {
+        header match {
+          case Some(s) => println(s"\n$s")
+          case _ =>
+        }
 
-      df.show(numRows, truncate, vertical)
+        df.show(numRows, truncate, vertical)
+      }
       df
     }
 
-    def alsoPrintSchema(header: Option[String] = None): DataFrame = {
-      header match {
-        case Some(s) => println(s"\n$s")
-        case _ =>
-      }
+    def debugPrintSchema(header: Option[String] = None): DataFrame = {
+      if (debugging) {
+        header match {
+          case Some(s) => println(s"\n$s")
+          case _ =>
+        }
 
-      df.printSchema()
+        df.printSchema()
+      }
       df
     }
 

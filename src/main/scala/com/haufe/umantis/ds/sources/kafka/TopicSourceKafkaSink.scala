@@ -64,7 +64,7 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
             None
 
         val s = sourceDf
-          .alsoPrintSchema(Some("TopicSourceKafkaSink before serialization"))
+          .debugPrintSchema(Some("TopicSourceKafkaSink before serialization"))
           .serialize(
             None,
             None,
@@ -72,7 +72,7 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
             Some(sourceDf.columns), // .filter(_ != "key")
             outputTopicName
           )
-          .alsoPrintSchema(Some("TopicSourceKafkaSink after serialization"))
+          .debugPrintSchema(Some("TopicSourceKafkaSink after serialization"))
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", conf.filePathCheckpoint)
@@ -165,16 +165,16 @@ class TopicSourceKafkaSink(conf: TopicConf) extends TopicSourceSink(conf) {
       .option("startingOffsets", "earliest")
       .option("subscribe", outputTopicName)
       .load()
-      .alsoPrintSchema(Some("TopicSourceKafkaSink just after load"))
-      .alsoShow(20, 20)
+      .debugPrintSchema(Some("TopicSourceKafkaSink just after load"))
+      .debugShow(20, 20)
       .repartition(conf.sinkConf.numPartitions)
       .deserialize(valueColumn = Some("value"), topic = outputTopicName)
       .expand("value")
 
     val newDataFrame = postProcessDf(kafkaDf)
 //      .expand("key")
-      .alsoPrintSchema(Some("TopicSourceKafkaSink after post process"))
-      .alsoShow(20, 20)
+      .debugPrintSchema(Some("TopicSourceKafkaSink after post process"))
+      .debugShow(20, 20)
       .cache()
     dataFrame = Some(newDataFrame)
     newDataFrame

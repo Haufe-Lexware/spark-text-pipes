@@ -83,10 +83,10 @@ class TopicSourceKafkaSinkAvroSpec extends SparkSpec
 
     // writing to kafka batch (no streaming)
     df
-      .alsoPrintSchema(Some("fixture"))
+      .debugPrintSchema(Some("fixture"))
       .serialize(None, None, "value", Some(df.columns), inputTopic)
-      .alsoPrintSchema(Some("input"))
-      .alsoShow()
+      .debugPrintSchema(Some("input"))
+      .debugShow()
       .write
       .format("kafka")
       .option("kafka.bootstrap.servers", kafkaBroker)
@@ -127,18 +127,4 @@ class TopicSourceKafkaSinkAvroSpec extends SparkSpec
     deleteSubject(inputTopic + "-value")
     deleteSubject(outputTopic + "-value")
   }
-}
-
-trait TopicSourceKafkaSinkSpecFixture extends SparkSessionWrapper with DataFrameHelpers {
-
-  import currentSparkSession.implicits._
-
-  val df: DataFrame = Seq(
-    (1, "a"),
-    (2, "b"),
-    (3, "a"),
-    (4, "a"),
-    (5, "b")
-  )
-    .toDF("num", "type")
 }
