@@ -98,6 +98,8 @@ services:
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
     networks:
     - ds
+    volumes:
+      - ../apps/confluent-5.2.1:/confluent
 
   schema-registry:
     image: confluentinc/cp-schema-registry:latest

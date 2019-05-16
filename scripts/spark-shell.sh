@@ -17,8 +17,8 @@ echo "adding jars ${JARS}"
 # Starting Spark Shell
 /spark/bin/spark-shell \
     --jars ${JARS} \
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.0 \
-    --packages org.apache.spark:spark-avro_2.11:2.4.0 \
+    --packages org.apache.spark:spark-sql-kafka-0-10_2.11:2.4.3 \
+    --packages org.apache.spark:spark-avro_2.11:2.4.3 \
     --conf spark.driver.extraJavaOptions="-Dscala.color" \
     --executor-memory 8G \
     --driver-memory 8G

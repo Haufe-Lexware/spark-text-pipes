@@ -3,7 +3,7 @@ package com.haufe.umantis.ds.sources.kafka
 import com.haufe.umantis.ds.spark.SparkIO
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
 import io.confluent.kafka.schemaregistry.client.rest.exceptions.RestClientException
-import org.apache.kafka.clients.admin.AdminClient
+import org.apache.kafka.clients.admin.{AdminClient, NewTopic}
 
 import scala.util.Try
 
@@ -21,6 +21,12 @@ trait KafkaExternalServices extends SparkIO {
   def deleteTopic(topic: String): Unit = {
     import collection.JavaConverters._
     Try(adminClient.deleteTopics(List(topic).asJavaCollection).all().get())
+  }
+
+  def createTopic(topic: String, numPartitions: Int = 1, replicationFactor: Short = 1): Unit = {
+    import collection.JavaConverters._
+    val newTopic = new NewTopic(topic, numPartitions, replicationFactor)
+    Try(adminClient.createTopics(List(newTopic).asJavaCollection).all().get())
   }
 
   def deleteSubject(subject: String): Unit = {
