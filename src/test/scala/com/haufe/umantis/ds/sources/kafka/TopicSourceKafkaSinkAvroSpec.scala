@@ -16,13 +16,12 @@
 package com.haufe.umantis.ds.sources.kafka
 
 import com.haufe.umantis.ds.sources.kafka.serde.KafkaSerde
-import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
+import com.haufe.umantis.ds.spark.SparkIO
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.catalyst.ScalaReflection.schemaFor
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{LongType, StructField, StructType}
 import org.scalatest.BeforeAndAfter
 
 class TopicSourceKafkaSinkAvroSpec extends SparkSpec

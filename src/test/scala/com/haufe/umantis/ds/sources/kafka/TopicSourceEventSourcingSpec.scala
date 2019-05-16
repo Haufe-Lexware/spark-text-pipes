@@ -16,12 +16,11 @@
 package com.haufe.umantis.ds.sources.kafka
 
 
-import com.haufe.umantis.ds.nlp.{ColnamesText, DsPipeline, DsPipelineInput, StandardPipeline}
 import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, DataFrameJsonHelpers, KafkaSerde}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO, SparkSessionWrapper}
 import com.haufe.umantis.ds.tests.SparkSpec
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.types.{IntegerType, LongType}
+import org.apache.spark.sql.types.LongType
 import org.scalatest.BeforeAndAfter
 import org.scalatest.Matchers._
 
