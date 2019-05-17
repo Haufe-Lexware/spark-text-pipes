@@ -1,12 +1,14 @@
 package com.haufe.umantis.ds.sources.kafka.serde
 
 import io.confluent.kafka.schemaregistry.client.CachedSchemaRegistryClient
-import org.apache.spark.sql.DataFrame
+import org.apache.avro.Schema
 import org.apache.spark.sql.avro._
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.{Column, DataFrame}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
+import scala.util.Try
 
 
 trait DataFrameAvroHelpers {
@@ -42,7 +44,10 @@ trait DataFrameAvroHelpers {
 
       val schema = getSchema(schemaRegistry, subject, version)
 
-      df.withColumn(outputColumn, from_avro(col(inputColumn), schema))
+      df.withColumn(
+        outputColumn,
+        new Column(ConfluentAvroDataToCatalyst(col(inputColumn).expr, schema))
+      )
     }
 
     def to_confluent_avro(
@@ -50,28 +55,58 @@ trait DataFrameAvroHelpers {
                            subject: String,
                            outputColumn: String,
                            inputColumns: Option[Array[String]] = None,
+                           registerSchema: Boolean = true,
                            recordName: String = "topLevelRecord",
                            nameSpace: String = ""
                          )
     : DataFrame = {
 
       val inputColsNames = inputColumns match {
-          case Some(cols) => cols
-          case _ => df.columns
-        }
+        case Some(cols) => cols
+        case _ => df.columns
+      }
 
       val inputCols = inputColsNames.map(col)
 
       val schemaRegistry = SchemaRegistryHelper.getSchemaRegistry(schemaRegistryURLs)
 
-      val schema = SchemaConverters.toAvroType(
+      val dfAvroSchema = SchemaConverters.toAvroType(
         df.select(inputCols: _*).schema,
+        nullable = false,
         recordName = recordName,
         nameSpace = nameSpace
       )
-      schemaRegistry.register(subject, schema)
 
-      val dfWithAvroCol = df.withColumn(outputColumn, to_avro(struct(inputCols: _*)))
+      val schemaId: Int =
+        Try(Some(schemaRegistry.getLatestSchemaMetadata(subject))).getOrElse(None) match {
+
+          case Some(metadata) =>
+            val registeredSchema = new Schema.Parser().parse(metadata.getSchema)
+
+            if (registeredSchema != dfAvroSchema) {
+              throw new IncompatibleSchemaException(
+                s"The schema of the dataframe in input and the one registered in the" +
+                  s" schema registry $schemaRegistryURLs with id ${metadata.getId} differ:\n" +
+                  s"registered schema: $registeredSchema\n" +
+                  s"dataframe schema : $dfAvroSchema"
+              )
+            }
+
+            metadata.getId
+
+          case _ =>
+            if (registerSchema)
+              schemaRegistry.register(subject, dfAvroSchema)
+            else
+              throw new IllegalArgumentException(
+                s"Subject $subject does not exist in $schemaRegistryURLs and registerSchema=false"
+              )
+        }
+
+      val dfWithAvroCol = df.withColumn(
+        outputColumn,
+        new Column(CatalystDataToConfluentAvro(struct(inputCols: _*).expr, schemaId))
+      )
 
       // dropping all inputColumns
       dfWithAvroCol.drop(inputColsNames.filter(_ != outputColumn): _*)
@@ -81,7 +116,7 @@ trait DataFrameAvroHelpers {
 }
 
 object SchemaRegistryHelper {
-  private val cacheCapacity = 256
+  private val cacheCapacity = 2048
 
   val avroRegistryClients: mutable.Map[String, CachedSchemaRegistryClient] =
     mutable.Map[String, CachedSchemaRegistryClient]()

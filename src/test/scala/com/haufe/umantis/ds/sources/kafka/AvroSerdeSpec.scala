@@ -43,8 +43,8 @@ class AvroSerdeSpec
   val topic = "test.avro.serde"
 
   "to_avro/from_avro" should "give correct results" in {
-    import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
     import org.apache.spark.sql.DataFrame
+    import org.apache.spark.sql.avro.{SchemaConverters, from_avro, to_avro}
 
     val input1 = Seq("foo", "bar", "baz").toDF("key")
     val input2 = input1.sqlContext.createDataFrame(input1.rdd, input1.schema)
@@ -82,8 +82,8 @@ class AvroSerdeSpec
   "DataFrameAvroHelpers" should
     "serialize and deserialize Avro, register and retrieve schemas from the Schema Registry." in {
 
-    deleteSubject(topic + "-key")
-    deleteSubject(topic + "-value")
+    //deleteSubject(topic + "-key")
+    //deleteSubject(topic + "-value")
 
     val df = testData
       .split('\n').toSeq
@@ -103,6 +103,7 @@ class AvroSerdeSpec
         topic + "-key",
         "key",
         Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
+        true,
         "TestKey",
         "com.jaumo"
       )
@@ -111,6 +112,7 @@ class AvroSerdeSpec
         topic + "-value",
         "value",
         Some(Array("f1", "f2")),
+        registerSchema = true,
         "TestValue",
         "com.jaumo"
       )
@@ -138,11 +140,21 @@ class AvroSerdeSpec
 
   "DataFrameAvroHelpers" should
     "serialize and deserialize Avro, register and retrieve schemas from the Schema Registry" +
-      "also when writing to/from Kafka." in {
+      " also when writing to/from Kafka." in {
 
-    deleteSubject(topic + "-key")
-    deleteSubject(topic + "-value")
+    // NOTE: debug information
+    // ./kafka-avro-console-consumer
+    //    --bootstrap-server localhost:9092
+    //    --partition 0
+    //    --from-beginning
+    //    --property schema.registry.url=http://schema-registry:8081
+    //    --property print.key=true
+    //    --topic test.avro.serde
+
+//    deleteSubject(topic + "-key")
+//    deleteSubject(topic + "-value")
     deleteTopic(topic)
+    createTopic(topic, 2)
 
     val df = testData
       .split('\n').toSeq
@@ -153,6 +165,7 @@ class AvroSerdeSpec
       .expand("key")
       .fromInferredJson("value")
       .expand("value")
+//      .setNullableStateOfColumns(nullable = false, Some(Array("service_name")))
       .debugPrintSchema()
       .debugShow()
 
@@ -162,6 +175,7 @@ class AvroSerdeSpec
         topic + "-key",
         "key",
         Some(Array("entity_id", "identity_id", "service_name", "tenant_id", "timestamp")),
+        registerSchema = true,
         "TestKey",
         "com.jaumo"
       )
@@ -170,9 +184,11 @@ class AvroSerdeSpec
         topic + "-value",
         "value",
         Some(Array("f1", "f2")),
+        registerSchema = true,
         "TestValue",
         "com.jaumo"
       )
+      .repartition(2)
       .debugPrintSchema(Some("Avro Serialized"))
       .debugShow()
       .write
@@ -202,12 +218,13 @@ class AvroSerdeSpec
         avroSchemaRegistry,
         topic + "-value"
       )
-      .select("key", "value")
+      .select("key", "value", "partition")
       .expand("key")
       .expand("value")
       .sort($"f1")
-      .debugPrintSchema(Some("Avro Deserialized"))
+      .debugPrintSchema(Some("Avro Deserialized with partition information"))
       .debugShow()
+      .drop("partition")
 
     assertSmallDataFrameEquality(dfToAvroAndBack, df)
   }
