@@ -3,6 +3,7 @@ organization := "com.haufe.umantis"
 version := "0.1"
 
 scalaVersion := "2.11.12"
+scalacOptions += "-target:jvm-1.8"
 
 resolvers += "Spark Packages Repo" at "http://dl.bintray.com/spark-packages/maven"
 
