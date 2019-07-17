@@ -141,7 +141,7 @@ libraryDependencies +="org.dispatchhttp" %% "dispatch-core" % "0.14.0"
 // KAFKA
 resolvers += "confluent" at "http://packages.confluent.io/maven/"
 
-libraryDependencies += "io.confluent" % "kafka-avro-serializer" % "5.0.1"
+libraryDependencies += "io.confluent" % "kafka-avro-serializer" % "5.2.2"
 
 // https://mvnrepository.com/artifact/com.databricks/spark-avro
 libraryDependencies += "com.databricks" %% "spark-avro" % "4.0.0"
@@ -150,7 +150,7 @@ libraryDependencies += "com.databricks" %% "spark-avro" % "4.0.0"
 libraryDependencies += "org.apache.kafka" % "kafka-clients" % "1.1.0"
 
 // https://mvnrepository.com/artifact/org.apache.kafka/kafka
-libraryDependencies += "org.apache.kafka" %% "kafka" % "1.1.0"
+libraryDependencies += "org.apache.kafka" %% "kafka" % "2.3.0"
 
 // Cassandra
 //libraryDependencies += "datastax" % "spark-cassandra-connector" % "2.3.2-s_2.11"
