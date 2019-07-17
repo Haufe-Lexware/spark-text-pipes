@@ -6,7 +6,6 @@ import org.apache.spark.sql.avro._
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{Column, DataFrame}
 
-import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Try
 
@@ -116,6 +115,9 @@ trait DataFrameAvroHelpers {
 }
 
 object SchemaRegistryHelper {
+
+  import scala.collection.JavaConverters._
+
   private val cacheCapacity = 2048
 
   val avroRegistryClients: mutable.Map[String, CachedSchemaRegistryClient] =
