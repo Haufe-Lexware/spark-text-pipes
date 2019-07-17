@@ -289,7 +289,7 @@ object TextCleaner extends Acronyms {
             val csvString = ConfigGetter
               .getConfigString("/AcronymsExpansion.csv")
               .lines
-              .toList
+              .toSeq
 
             // converting to Dataset[String]
             val csvData: Dataset[String] = currentSparkSession
