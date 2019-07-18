@@ -11,8 +11,8 @@ ENV MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
 RUN git clone https://github.com/redsk/spark.git \
     && cd spark \
     && git checkout branch-2.4 \
-    && ./build/mvn -DskipTests clean package \
-    && ./dev/make-distribution.sh --name 2.4.4-snapshot --pip --r --tgz -Psparkr -Phadoop-2.7 -Phive -Phive-thriftserver -Pmesos -Pyarn -Pkubernetes
+#    && ./build/mvn -DskipTests clean package \
+    && ./dev/make-distribution.sh --name 2.4.4-snapshot --tgz -Phadoop-2.7 -Phive -Phive-thriftserver -Pmesos -Pyarn -Pkubernetes
 
 ENV SPARK_VERSION=2.4.4-snapshot
 ENV HADOOP_VERSION=2.7
