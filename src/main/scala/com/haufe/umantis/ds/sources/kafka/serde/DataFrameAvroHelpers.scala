@@ -40,8 +40,17 @@ trait DataFrameAvroHelpers {
                            )
     : DataFrame = {
       val schemaRegistry = SchemaRegistryHelper.getSchemaRegistry(schemaRegistryURLs)
-
       val schema = getSchema(schemaRegistry, subject, version)
+
+      from_confluent_avro(inputColumn, outputColumn, schema)
+    }
+
+    def from_confluent_avro(
+                             inputColumn: String,
+                             outputColumn: String,
+                             schema: String
+                           )
+    : DataFrame = {
 
       df.withColumn(
         outputColumn,
