@@ -1,0 +1,35 @@
+FROM openjdk:8-jdk
+
+MAINTAINER Nicola Bova <nicola.bova@gmail.com>
+
+ENV ENABLE_INIT_DAEMON true
+ENV INIT_DAEMON_BASE_URI http://identifier/init-daemon
+ENV INIT_DAEMON_STEP spark_master_init
+
+ENV MAVEN_OPTS="-Xmx2g -XX:ReservedCodeCacheSize=512m"
+
+RUN git clone https://github.com/redsk/spark.git \
+    && cd spark \
+    && git checkout branch-2.4
+
+RUN cd spark \
+    && ./dev/make-distribution.sh --name redsk --tgz -Phadoop-2.7 -Phive -Phive-thriftserver -Pmesos -Pyarn -Pkubernetes \
+    && mv spark-2.4.4-SNAPSHOT-bin-redsk.tgz ../
+
+#RUN rm -rf spark
+RUN mv spark spark-dist
+
+RUN tar -xvzf spark-2.4.4-SNAPSHOT-bin-redsk.tgz \
+      && mv spark-2.4.4-SNAPSHOT-bin-redsk spark \
+      && rm spark-2.4.4-SNAPSHOT-bin-redsk.tgz \
+      && cd /
+
+RUN curl http://central.maven.org/maven2/com/github/fommil/netlib/netlib-native_system-linux-x86_64/1.1/netlib-native_system-linux-x86_64-1.1-natives.jar -o /spark/jars/netlib-native_system-linux-x86_64-1.1-natives.jar \
+	&& curl http://central.maven.org/maven2/com/github/fommil/netlib/native_system-java/1.1/native_system-java-1.1.jar -o /spark/jars/native_system-java-1.1.jar \
+	&& curl http://central.maven.org/maven2/com/github/fommil/jniloader/1.1/jniloader-1.1.jar -o /spark/jars/jniloader-1.1.jar
+
+#RUN apt-get-install -y python3 python3-setuptools python3-pip libopenblas-base
+
+# Fix the value of PYTHONHASHSEED
+# Note: this is needed when you use Python 3.3 or greater
+#ENV PYTHONHASHSEED 1
