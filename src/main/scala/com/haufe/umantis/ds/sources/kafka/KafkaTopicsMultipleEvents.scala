@@ -2,11 +2,10 @@ package com.haufe.umantis.ds.sources.kafka
 
 import java.nio.ByteBuffer
 
-import com.haufe.umantis.ds.sources.kafka.serde.SchemaRegistryHelper
+import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, SchemaRegistryHelper}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.avro.from_avro
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
 
@@ -18,7 +17,7 @@ class KafkaTopicsMultipleEvents(
                                  val kafkaURL: String
                                )
   extends SparkIO
-    with DataFrameHelpers {
+    with DataFrameHelpers with DataFrameAvroHelpers {
 
   import currentSparkSession.implicits._
 
@@ -109,7 +108,7 @@ class KafkaTopicsMultipleEvents(
         val eventName = event.split('.').last
         eventName -> raw
           .filter($"schemaID".isin(metadata.schemaIDs: _*))
-          .withColumn("value", from_avro('value, metadata.latestSchema))
+          .from_confluent_avro("value", "value", metadata.latestSchema)
           .select("value.*")
           .cache()
       }
