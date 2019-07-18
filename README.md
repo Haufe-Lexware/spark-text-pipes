@@ -144,6 +144,8 @@ apt-get install sbt
  sbt 'set test in assembly := {}' assembly
  # If it fails, increase the RAM:
  # sbt -mem 4000 'set test in assembly := {}' assembly
+ # you might need to pass a suitable java home (java 8 required) to sbt, e.g.
+ # sbt -java-home /usr/lib/jvm/java-8-openjdk-amd64 'set test in assembly := {}' assembly
 ```
 
 ### Running the Spark Shell
