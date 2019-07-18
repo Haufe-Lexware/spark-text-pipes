@@ -16,7 +16,8 @@ RUN cd spark \
     && ./dev/make-distribution.sh --name redsk --tgz -Phadoop-2.7 -Phive -Phive-thriftserver -Pmesos -Pyarn -Pkubernetes \
     && mv spark-2.4.4-SNAPSHOT-bin-redsk.tgz ../
 
-RUN rm -rf spark
+#RUN rm -rf spark
+RUN mv spark spark-dist
 
 RUN tar -xvzf spark-2.4.4-SNAPSHOT-bin-redsk.tgz \
       && mv spark-2.4.4-SNAPSHOT-bin-redsk spark \
