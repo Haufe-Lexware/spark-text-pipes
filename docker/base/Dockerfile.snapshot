@@ -18,13 +18,14 @@ RUN cd spark \
 
 RUN rm -rf spark
 
-ENV SPARK_VERSION=2.4.4-SNAPSHOT-bin-redsk
+ENV SPARK_VERSION=2.4.4-SNAPSHOT
 ENV HADOOP_VERSION=2.7
+ENV NAME=-redsk
 
 
-RUN tar -xvzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
-      && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} spark \
-      && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+RUN tar -xvzf spark-${SPARK_VERSION}-bin${NAME}-hadoop${HADOOP_VERSION}.tgz \
+      && mv spark-${SPARK_VERSION}-bin${NAME}-hadoop${HADOOP_VERSION} spark \
+      && rm spark-${SPARK_VERSION}-bin${NAME}-hadoop${HADOOP_VERSION}.tgz \
       && cd /
 
 RUN curl http://central.maven.org/maven2/com/github/fommil/netlib/netlib-native_system-linux-x86_64/1.1/netlib-native_system-linux-x86_64-1.1-natives.jar -o /spark/jars/netlib-native_system-linux-x86_64-1.1-natives.jar \
