@@ -8,7 +8,8 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.streaming.StreamingQuery
+import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener, Trigger}
+import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
 
 case class EventMetadata(latestVersion: Int, latestSchema: String, schemaIDs: List[Int])
 
@@ -159,7 +160,7 @@ class KafkaTopicsMultipleEvents(
           .outputMode("append")
           .option("checkpointLocation", checkpointFilePath)
           .format("parquet")
-          //          .trigger(conf.kafkaTopic.trigger)
+          .trigger(Trigger.ProcessingTime(1))
           .start(filePath)
 
         event -> KafkaHdfsBridge(
@@ -170,5 +171,20 @@ class KafkaTopicsMultipleEvents(
           streamingQuery = query
         )
       }
+  }
+
+  def installListeners(): Unit = {
+    currentSparkSession.streams.addListener(new StreamingQueryListener() {
+      override def onQueryStarted(queryStarted: QueryStartedEvent): Unit = {
+        println("Query started: " + queryStarted.id)
+      }
+      override def onQueryTerminated(
+                                      queryTerminated: QueryTerminatedEvent): Unit = {
+        println("Query terminated: " + queryTerminated.id)
+      }
+      override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
+        println("Query made progress: " + queryProgress.progress)
+      }
+    })
   }
 }
