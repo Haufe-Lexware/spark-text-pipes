@@ -141,7 +141,7 @@ class KafkaTopicsMultipleEvents(
       .select("schemaID", "value")
   }
 
-  def proc(topic: String, hdfsBase: String): Map[Event, KafkaHdfsBridge] = {
+  def proc(topic: String, hdfsBase: String, intervalMs: Int = 0): Map[Event, KafkaHdfsBridge] = {
     val source = getSource(topic)
 
     schemas(topic)
@@ -160,7 +160,7 @@ class KafkaTopicsMultipleEvents(
           .outputMode("append")
           .option("checkpointLocation", checkpointFilePath)
           .format("parquet")
-          .trigger(Trigger.ProcessingTime(1))
+          .trigger(Trigger.ProcessingTime(intervalMs))
           .start(filePath)
 
         event -> KafkaHdfsBridge(
