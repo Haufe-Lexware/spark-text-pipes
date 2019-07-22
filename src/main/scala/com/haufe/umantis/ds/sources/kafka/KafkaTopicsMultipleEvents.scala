@@ -8,8 +8,17 @@ import io.confluent.kafka.schemaregistry.client.SchemaMetadata
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.streaming.StreamingQuery
 
 case class EventMetadata(latestVersion: Int, latestSchema: String, schemaIDs: List[Int])
+
+case class KafkaHdfsBridge(
+                            topic: String,
+                            event: String,
+                            filePath: String,
+                            checkpointFilePath: String,
+                            streamingQuery: StreamingQuery
+                          )
 
 
 class KafkaTopicsMultipleEvents(
@@ -116,5 +125,50 @@ class KafkaTopicsMultipleEvents(
     if (rawDf.isEmpty) raw.unpersist()
 
     dfs
+  }
+
+  def getSource(topic: String): DataFrame = {
+    currentSparkSession
+      .readStream
+      .format("kafka")
+      .option("kafka.bootstrap.servers", kafkaURL)
+      .option("startingOffsets", "earliest")
+      .option("subscribe", topic)
+      .load()
+      .filter("value is not null")
+      .withColumn("schemaID", schemaID(col("value")))
+      .select("schemaID", "value")
+  }
+
+  def proc(topic: String, hdfsBase: String): Map[Event, KafkaHdfsBridge] = {
+    val source = getSource(topic)
+
+    schemas(topic)
+      .map { case (event, metadata: EventMetadata) =>
+
+        val eventName = event.split('.').last
+
+        val filePath = s"$hdfsBase/$topic/$eventName"
+        val checkpointFilePath = s"$filePath-CHECKPOINT"
+
+        val query: StreamingQuery = source
+          .filter($"schemaID".isin(metadata.schemaIDs: _*))
+          .from_confluent_avro("value", "value", metadata.latestSchema)
+          .select("value.*")
+          .writeStream
+          .outputMode("append")
+          .option("checkpointLocation", checkpointFilePath)
+          .format("parquet")
+          //          .trigger(conf.kafkaTopic.trigger)
+          .start(filePath)
+
+        event -> KafkaHdfsBridge(
+          topic = topic,
+          event = eventName,
+          filePath = filePath,
+          checkpointFilePath = checkpointFilePath,
+          streamingQuery = query
+        )
+      }
   }
 }
