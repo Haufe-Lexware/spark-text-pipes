@@ -12,6 +12,8 @@ import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery, StreamingQueryListener, Trigger}
 import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
 
+import org.apache.hadoop.fs.Path
+
 import scala.collection.mutable
 
 case class EventMetadata(latestVersion: Int, latestSchema: String, schemaIDs: List[Int])
@@ -196,6 +198,12 @@ class KafkaTopicsMultipleEvents(
     query.awaitTermination()
     toStop.remove(query.id)
 
+    val conf = currentSparkSession.sparkContext.hadoopConfiguration
+    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+    val path = new Path(bridge.copyFilename)
+    if (fs.exists(path))
+      fs.delete(path, true)
+
     currentSparkSession
       .read
       .parquet(bridge.filePath)
@@ -208,11 +216,6 @@ class KafkaTopicsMultipleEvents(
       .cache()
 
     df.count()
-
-    val conf = currentSparkSession.sparkContext.hadoopConfiguration
-    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    fs.rename(new org.apache.hadoop.fs.Path("/path/on/hdfs/file.txt"), new
-    org.apache.hadoop.fs.Path("/path/on/hdfs/other/file.txt"))
 
     bridge.dataStreamWriter.start(bridge.filePath)
 
