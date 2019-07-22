@@ -203,9 +203,11 @@ class KafkaTopicsMultipleEvents(
 
     val conf = currentSparkSession.sparkContext.hadoopConfiguration
     val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    val path = new Path(bridge.hadoopPath)
-    if (fs.exists(path))
+    val path = new Path('/' + bridge.hadoopPath)
+    if (fs.exists(path)) {
+      println(s"copy file exists:, $path, deleting it.")
       fs.delete(path, true)
+    }
 
     currentSparkSession
       .read
