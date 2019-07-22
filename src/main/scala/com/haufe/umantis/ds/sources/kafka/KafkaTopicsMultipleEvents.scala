@@ -160,7 +160,7 @@ class KafkaTopicsMultipleEvents(
           .outputMode("append")
           .option("checkpointLocation", checkpointFilePath)
           .format("parquet")
-          .trigger(Trigger.ProcessingTime(1))
+          .trigger(Trigger.ProcessingTime(intervalMs))
           .start(filePath)
 
         event -> KafkaHdfsBridge(
@@ -178,12 +178,12 @@ class KafkaTopicsMultipleEvents(
       override def onQueryStarted(queryStarted: QueryStartedEvent): Unit = {
         println("Query started: " + queryStarted.id)
       }
-      override def onQueryTerminated(
-                                      queryTerminated: QueryTerminatedEvent): Unit = {
+      override def onQueryTerminated(queryTerminated: QueryTerminatedEvent): Unit = {
         println("Query terminated: " + queryTerminated.id)
       }
       override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
         println("Query made progress: " + queryProgress.progress)
+        currentSparkSession.streams.get(queryProgress.progress.id).stop()
       }
     })
   }
