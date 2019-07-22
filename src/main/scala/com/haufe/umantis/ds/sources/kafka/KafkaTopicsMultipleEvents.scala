@@ -23,6 +23,7 @@ case class KafkaHdfsBridge(
                             event: String,
                             filePath: String,
                             checkpointFilePath: String,
+                            hadoopPath: String,
                             dataStreamWriter: DataStreamWriter[Row],
                             streamingQuery: StreamingQuery
                           )
@@ -154,14 +155,15 @@ class KafkaTopicsMultipleEvents(
 
   val queries: mutable.Map[Topic, Map[Event, KafkaHdfsBridge]] = mutable.Map()
 
-  def proc(topic: String, hdfsBase: String, intervalMs: Int = 0): Unit = {
+  def proc(topic: String, hdfsURL: String, hdfsBase: String, intervalMs: Int = 0): Unit = {
     val source = getSource(topic)
 
     queries(topic) = schemas(topic)
       .map { case (event, metadata: EventMetadata) =>
         val eventName = event.split('.').last
 
-        val filePath = s"$hdfsBase/$topic/$eventName"
+        val hadoopPath = s"$hdfsBase/$topic/$eventName"
+        val filePath = s"$hdfsURL/$hadoopPath"
         val checkpointFilePath = s"$filePath-CHECKPOINT"
 
         val dataStreamWriter = source
@@ -182,6 +184,7 @@ class KafkaTopicsMultipleEvents(
           event = eventName,
           filePath = filePath,
           checkpointFilePath = checkpointFilePath,
+          hadoopPath,
           dataStreamWriter = dataStreamWriter,
           streamingQuery = query
         )
@@ -200,7 +203,7 @@ class KafkaTopicsMultipleEvents(
 
     val conf = currentSparkSession.sparkContext.hadoopConfiguration
     val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    val path = new Path(bridge.copyFilename)
+    val path = new Path(bridge.hadoopPath)
     if (fs.exists(path))
       fs.delete(path, true)
 
