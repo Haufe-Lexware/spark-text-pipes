@@ -202,12 +202,21 @@ class KafkaTopicsMultipleEvents(
       .write
       .parquet(bridge.copyFilename)
 
-    bridge.dataStreamWriter.start(bridge.filePath)
-
-    currentSparkSession
+    val df = currentSparkSession
       .read
       .parquet(bridge.filePath)
       .cache()
+
+    df.count()
+
+    val conf = currentSparkSession.sparkContext.hadoopConfiguration
+    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+    fs.rename(new org.apache.hadoop.fs.Path("/path/on/hdfs/file.txt"), new
+    org.apache.hadoop.fs.Path("/path/on/hdfs/other/file.txt"))
+
+    bridge.dataStreamWriter.start(bridge.filePath)
+
+    df
   }
 
   def installListeners(): Unit = {
