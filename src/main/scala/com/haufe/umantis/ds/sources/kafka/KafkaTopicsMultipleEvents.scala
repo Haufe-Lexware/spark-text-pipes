@@ -40,6 +40,8 @@ class KafkaTopicsMultipleEvents(
 
   import scala.collection.JavaConverters._
 
+  installListeners()
+
   type Topic = String
   type Event = String
 
@@ -218,7 +220,7 @@ class KafkaTopicsMultipleEvents(
       }
       override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
 //        println("Query made progress: " + queryProgress.progress)
-        println("Query made progress: " + queryProgress.progress.id)
+//        println("Query made progress: " + queryProgress.progress.id)
         if (toStop.contains(queryProgress.progress.id)) {
           currentSparkSession.streams.get(queryProgress.progress.id).stop()
         }
