@@ -1,15 +1,18 @@
 package com.haufe.umantis.ds.sources.kafka
 
 import java.nio.ByteBuffer
+import java.util.UUID
 
 import com.haufe.umantis.ds.sources.kafka.serde.{DataFrameAvroHelpers, SchemaRegistryHelper}
 import com.haufe.umantis.ds.spark.{DataFrameHelpers, SparkIO}
 import io.confluent.kafka.schemaregistry.client.SchemaMetadata
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.streaming.{StreamingQuery, StreamingQueryListener, Trigger}
+import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery, StreamingQueryListener, Trigger}
 import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
+
+import scala.collection.mutable
 
 case class EventMetadata(latestVersion: Int, latestSchema: String, schemaIDs: List[Int])
 
@@ -18,8 +21,12 @@ case class KafkaHdfsBridge(
                             event: String,
                             filePath: String,
                             checkpointFilePath: String,
+                            dataStreamWriter: DataStreamWriter[Row],
                             streamingQuery: StreamingQuery
                           )
+{
+  val copyFilename = s"$filePath-COPY"
+}
 
 
 class KafkaTopicsMultipleEvents(
@@ -141,18 +148,19 @@ class KafkaTopicsMultipleEvents(
       .select("schemaID", "value")
   }
 
-  def proc(topic: String, hdfsBase: String, intervalMs: Int = 0): Map[Event, KafkaHdfsBridge] = {
+  val queries: mutable.Map[Topic, Map[Event, KafkaHdfsBridge]] = mutable.Map()
+
+  def proc(topic: String, hdfsBase: String, intervalMs: Int = 0): Unit = {
     val source = getSource(topic)
 
-    schemas(topic)
+    queries(topic) = schemas(topic)
       .map { case (event, metadata: EventMetadata) =>
-
         val eventName = event.split('.').last
 
         val filePath = s"$hdfsBase/$topic/$eventName"
         val checkpointFilePath = s"$filePath-CHECKPOINT"
 
-        val query: StreamingQuery = source
+        val dataStreamWriter = source
           .filter($"schemaID".isin(metadata.schemaIDs: _*))
           .from_confluent_avro("value", "value", metadata.latestSchema)
           .select("value.*")
@@ -161,16 +169,43 @@ class KafkaTopicsMultipleEvents(
           .option("checkpointLocation", checkpointFilePath)
           .format("parquet")
           .trigger(Trigger.ProcessingTime(intervalMs))
+
+        val query = dataStreamWriter
           .start(filePath)
 
-        event -> KafkaHdfsBridge(
+        eventName -> KafkaHdfsBridge(
           topic = topic,
           event = eventName,
           filePath = filePath,
           checkpointFilePath = checkpointFilePath,
+          dataStreamWriter = dataStreamWriter,
           streamingQuery = query
         )
       }
+  }
+
+  val toStop: mutable.Set[UUID] = mutable.Set()
+
+  def get(topic: Topic, event: Event): DataFrame = {
+    val bridge = queries(topic)(event)
+    val query = bridge.streamingQuery
+
+    toStop.add(query.id)
+    query.awaitTermination()
+    toStop.remove(query.id)
+
+    currentSparkSession
+      .read
+      .parquet(bridge.filePath)
+      .write
+      .parquet(bridge.copyFilename)
+
+    bridge.dataStreamWriter.start(bridge.filePath)
+
+    currentSparkSession
+      .read
+      .parquet(bridge.filePath)
+      .cache()
   }
 
   def installListeners(): Unit = {
@@ -182,8 +217,11 @@ class KafkaTopicsMultipleEvents(
         println("Query terminated: " + queryTerminated.id)
       }
       override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
-        println("Query made progress: " + queryProgress.progress)
-        currentSparkSession.streams.get(queryProgress.progress.id).stop()
+//        println("Query made progress: " + queryProgress.progress)
+        println("Query made progress: " + queryProgress.progress.id)
+        if (toStop.contains(queryProgress.progress.id)) {
+          currentSparkSession.streams.get(queryProgress.progress.id).stop()
+        }
       }
     })
   }
