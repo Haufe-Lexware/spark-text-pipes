@@ -199,6 +199,18 @@ class KafkaTopicsMultipleEvents(
 
   val toStop: mutable.Set[UUID] = mutable.Set()
 
+  def stopAll(): Unit = {
+    queries.flatMap { case (_, events) =>
+      events.map { case (_, bridge) =>
+        val query = bridge.streamingQuery
+        toStop.add(query.id)
+        query
+      }
+    }
+      .par
+      .foreach(_.awaitTermination())
+  }
+
   def get(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
     val query = bridge.streamingQuery
