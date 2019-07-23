@@ -197,27 +197,29 @@ class KafkaTopicsMultipleEvents(
       }
   }
 
-  val toStop: mutable.Set[UUID] = mutable.Set()
+  val queriesToStop: mutable.Set[UUID] = mutable.Set()
 
   def stopAll(): Unit = {
     queries.flatMap { case (_, events) =>
       events.map { case (_, bridge) =>
         val query = bridge.streamingQuery
-        toStop.add(query.id)
+        queriesToStop.add(query.id)
         query
       }
     }
       .par
       .foreach(_.awaitTermination())
+
+    queriesToStop.clear()
   }
 
   def get(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
     val query = bridge.streamingQuery
 
-    toStop.add(query.id)
+    queriesToStop.add(query.id)
     query.awaitTermination()
-    toStop.remove(query.id)
+    queriesToStop.remove(query.id)
 
     //    val conf = currentSparkSession.sparkContext.hadoopConfiguration
     //    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
@@ -265,7 +267,7 @@ class KafkaTopicsMultipleEvents(
       override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
         //        println("Query made progress: " + queryProgress.progress)
         //        println("Query made progress: " + queryProgress.progress.id)
-        if (toStop.contains(queryProgress.progress.id)) {
+        if (queriesToStop.contains(queryProgress.progress.id)) {
           currentSparkSession.streams.get(queryProgress.progress.id).stop()
         }
       }
