@@ -154,7 +154,14 @@ class KafkaTopicsMultipleEvents(
 
   val queries: mutable.Map[Topic, Map[Event, KafkaHdfsBridge]] = mutable.Map()
 
-  def proc(topic: String, hdfsURL: String, hdfsBase: String, intervalMs: Int = 0): Unit = {
+  def proc(
+            topic: String,
+            hdfsURL: String,
+            hdfsBase: String,
+            intervalMs: Int = 0,
+            fileFormat: String = "parquet"
+          ): Unit = {
+
     val source = getSource(topic)
 
     queries(topic) = schemas(topic)
@@ -172,7 +179,7 @@ class KafkaTopicsMultipleEvents(
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", checkpointFilePath)
-          .format("orc")
+          .format(fileFormat)
           .trigger(Trigger.ProcessingTime(intervalMs))
 
         val query = dataStreamWriter
@@ -200,8 +207,8 @@ class KafkaTopicsMultipleEvents(
     query.awaitTermination()
     toStop.remove(query.id)
 
-//    val conf = currentSparkSession.sparkContext.hadoopConfiguration
-//    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+    //    val conf = currentSparkSession.sparkContext.hadoopConfiguration
+    //    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
 
     //    val path = new Path(s"/${bridge.hadoopPath}-COPY/")
     //    println(s"copy file to delete: $path")
@@ -212,8 +219,7 @@ class KafkaTopicsMultipleEvents(
     //    }
 
 
-
-//    val snapshot = fs.createSnapshot(new Path(s"/${bridge.filePath}"))
+    //    val snapshot = fs.createSnapshot(new Path(s"/${bridge.filePath}"))
 
     //    currentSparkSession
     //      .read
