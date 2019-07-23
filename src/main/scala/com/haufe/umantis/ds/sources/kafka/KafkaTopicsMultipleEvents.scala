@@ -26,7 +26,7 @@ case class KafkaHdfsBridge(
                             hadoopPath: String,
                             fileFormat: String,
                             dataStreamWriter: DataStreamWriter[Row],
-                            streamingQuery: StreamingQuery
+                            var streamingQuery: StreamingQuery
                           ) {
   val copyFilename = s"$filePath-COPY"
 }
@@ -223,7 +223,7 @@ class KafkaTopicsMultipleEvents(
 
   def start(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
-    bridge.dataStreamWriter.start(bridge.filePath)
+    bridge.streamingQuery = bridge.dataStreamWriter.start(bridge.filePath)
   }
 
   def start(topic: Topic): Unit = {
