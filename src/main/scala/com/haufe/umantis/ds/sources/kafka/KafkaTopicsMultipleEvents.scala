@@ -173,7 +173,7 @@ class KafkaTopicsMultipleEvents(
           .writeStream
           .outputMode("append")
           .option("checkpointLocation", checkpointFilePath)
-          .format("parquet")
+          .format("orc")
           .trigger(Trigger.ProcessingTime(intervalMs))
 
         val query = dataStreamWriter
@@ -204,7 +204,6 @@ class KafkaTopicsMultipleEvents(
     val conf = currentSparkSession.sparkContext.hadoopConfiguration
     val fs = org.apache.hadoop.fs.FileSystem.get(conf)
     val path = new Path(s"/${bridge.hadoopPath}-COPY/")
-//    val path = new Path(bridge.copyFilename)
     println(s"copy file to delete: $path")
     if (fs.exists(path)) {
       fs.delete(path, true)
@@ -212,15 +211,18 @@ class KafkaTopicsMultipleEvents(
       println("copy file does not exist.")
     }
 
-    currentSparkSession
-      .read
-      .parquet(bridge.filePath)
-      .write
-      .parquet(bridge.copyFilename)
+//    val snapshot = fs.createSnapshot(new Path(s"/${bridge.filePath}"))
 
+//    currentSparkSession
+//      .read
+//      .parquet(bridge.filePath)
+//      .write
+//      .parquet(bridge.copyFilename)
+//
     val df = currentSparkSession
       .read
-      .parquet(bridge.filePath)
+      .format("orc")
+      .load(bridge.filePath)
       .cache()
 
     df.count()
