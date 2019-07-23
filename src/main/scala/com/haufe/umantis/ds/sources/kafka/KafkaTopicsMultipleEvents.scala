@@ -11,8 +11,8 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.streaming.{DataStreamWriter, StreamingQuery, StreamingQueryListener, Trigger}
 import org.apache.spark.sql.streaming.StreamingQueryListener.{QueryProgressEvent, QueryStartedEvent, QueryTerminatedEvent}
-
 import org.apache.hadoop.fs.Path
+import org.apache.spark.storage.StorageLevel
 
 import scala.collection.mutable
 
@@ -24,6 +24,7 @@ case class KafkaHdfsBridge(
                             filePath: String,
                             checkpointFilePath: String,
                             hadoopPath: String,
+                            fileFormat: String,
                             dataStreamWriter: DataStreamWriter[Row],
                             streamingQuery: StreamingQuery
                           ) {
@@ -33,7 +34,9 @@ case class KafkaHdfsBridge(
 
 class KafkaTopicsMultipleEvents(
                                  val schemaRegistryURL: String,
-                                 val kafkaURL: String
+                                 val kafkaURL: String,
+                                 val hdfsURL: String,
+                                 val hdfsBase: String
                                )
   extends SparkIO
     with DataFrameHelpers with DataFrameAvroHelpers {
@@ -154,13 +157,12 @@ class KafkaTopicsMultipleEvents(
 
   val queries: mutable.Map[Topic, Map[Event, KafkaHdfsBridge]] = mutable.Map()
 
-  def proc(
-            topic: String,
-            hdfsURL: String,
-            hdfsBase: String,
-            intervalMs: Int = 0,
-            fileFormat: String = "parquet"
-          ): Unit = {
+  def create(
+              topic: String,
+              intervalMs: Int = 0,
+              fileFormat: String = "parquet"
+            )
+  : Unit = {
 
     val source = getSource(topic)
 
@@ -190,7 +192,8 @@ class KafkaTopicsMultipleEvents(
           event = eventName,
           filePath = filePath,
           checkpointFilePath = checkpointFilePath,
-          hadoopPath,
+          hadoopPath = hadoopPath,
+          fileFormat = fileFormat,
           dataStreamWriter = dataStreamWriter,
           streamingQuery = query
         )
@@ -199,59 +202,55 @@ class KafkaTopicsMultipleEvents(
 
   val queriesToStop: mutable.Set[UUID] = mutable.Set()
 
-  def stopAll(): Unit = {
-    queries.flatMap { case (_, events) =>
-      events.map { case (_, bridge) =>
-        val query = bridge.streamingQuery
-        queriesToStop.add(query.id)
-        query
-      }
-    }
-      .par
-      .foreach(_.awaitTermination())
-
-    queriesToStop.clear()
+  def stopAndAwaitQueriesTermination(queries: Iterable[StreamingQuery]): Unit = {
+    val queryIds = queries.map(_.id)
+    queriesToStop ++= queryIds
+    queries.foreach(_.awaitTermination())
+    queriesToStop --= queryIds
   }
 
-  def get(topic: Topic, event: Event): Unit = {
+  def stop(): Unit = {
+    stopAndAwaitQueriesTermination(queries.values.flatMap(_.values.map(_.streamingQuery)))
+  }
+
+  def stop(topic: Topic): Unit = {
+    stopAndAwaitQueriesTermination(queries(topic).values.map(_.streamingQuery))
+  }
+
+  def stop(topic: Topic, event: Event): Unit = {
+    stopAndAwaitQueriesTermination(Iterable(queries(topic)(event).streamingQuery))
+  }
+
+  def start(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
-    val query = bridge.streamingQuery
+    bridge.dataStreamWriter.start(bridge.filePath)
+  }
 
-    queriesToStop.add(query.id)
-    query.awaitTermination()
-    queriesToStop.remove(query.id)
+  def start(topic: Topic): Unit = {
+    queries(topic).keys.foreach(start(topic, _))
+  }
 
-    //    val conf = currentSparkSession.sparkContext.hadoopConfiguration
-    //    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+  def start(): Unit = {
+    queries.keys.foreach(start)
+  }
 
-    //    val path = new Path(s"/${bridge.hadoopPath}-COPY/")
-    //    println(s"copy file to delete: $path")
-    //    if (fs.exists(path)) {
-    //      fs.delete(path, true)
-    //    } else {
-    //      println("copy file does not exist.")
-    //    }
+  def get(topic: Topic, event: Event): DataFrame = {
+    stop(topic, event)
+    val bridge = queries(topic)(event)
+    val df = currentSparkSession
+      .read
+      .format(bridge.fileFormat)
+      .load(bridge.filePath)
+      .persist(StorageLevel.MEMORY_AND_DISK)
+    start(topic, event)
+    df
+  }
 
-
-    //    val snapshot = fs.createSnapshot(new Path(s"/${bridge.filePath}"))
-
-    //    currentSparkSession
-    //      .read
-    //      .parquet(bridge.filePath)
-    //      .write
-    //      .parquet(bridge.copyFilename)
-    //
-    //    val df = currentSparkSession
-    //      .read
-    //      .format("orc")
-    //      .load(bridge.filePath)
-    //      .cache()
-    //
-    //    df.count()
-
-    //    bridge.dataStreamWriter.start(bridge.filePath)
-
-    //    df
+  def createSnapshot(topic: Topic, event: Event): Path = {
+    val bridge = queries(topic)(event)
+        val conf = currentSparkSession.sparkContext.hadoopConfiguration
+    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+    fs.createSnapshot(new Path(s"/${bridge.filePath}"))
   }
 
   def installListeners(): Unit = {
