@@ -26,8 +26,7 @@ case class KafkaHdfsBridge(
                             hadoopPath: String,
                             dataStreamWriter: DataStreamWriter[Row],
                             streamingQuery: StreamingQuery
-                          )
-{
+                          ) {
   val copyFilename = s"$filePath-COPY"
 }
 
@@ -193,7 +192,7 @@ class KafkaTopicsMultipleEvents(
 
   val toStop: mutable.Set[UUID] = mutable.Set()
 
-  def get(topic: Topic, event: Event): DataFrame = {
+  def get(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
     val query = bridge.streamingQuery
 
@@ -201,35 +200,38 @@ class KafkaTopicsMultipleEvents(
     query.awaitTermination()
     toStop.remove(query.id)
 
-    val conf = currentSparkSession.sparkContext.hadoopConfiguration
-    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
-    val path = new Path(s"/${bridge.hadoopPath}-COPY/")
-    println(s"copy file to delete: $path")
-    if (fs.exists(path)) {
-      fs.delete(path, true)
-    } else {
-      println("copy file does not exist.")
-    }
+//    val conf = currentSparkSession.sparkContext.hadoopConfiguration
+//    val fs = org.apache.hadoop.fs.FileSystem.get(conf)
+
+    //    val path = new Path(s"/${bridge.hadoopPath}-COPY/")
+    //    println(s"copy file to delete: $path")
+    //    if (fs.exists(path)) {
+    //      fs.delete(path, true)
+    //    } else {
+    //      println("copy file does not exist.")
+    //    }
+
+
 
 //    val snapshot = fs.createSnapshot(new Path(s"/${bridge.filePath}"))
 
-//    currentSparkSession
-//      .read
-//      .parquet(bridge.filePath)
-//      .write
-//      .parquet(bridge.copyFilename)
-//
-    val df = currentSparkSession
-      .read
-      .format("orc")
-      .load(bridge.filePath)
-      .cache()
+    //    currentSparkSession
+    //      .read
+    //      .parquet(bridge.filePath)
+    //      .write
+    //      .parquet(bridge.copyFilename)
+    //
+    //    val df = currentSparkSession
+    //      .read
+    //      .format("orc")
+    //      .load(bridge.filePath)
+    //      .cache()
+    //
+    //    df.count()
 
-    df.count()
+    //    bridge.dataStreamWriter.start(bridge.filePath)
 
-    bridge.dataStreamWriter.start(bridge.filePath)
-
-    df
+    //    df
   }
 
   def installListeners(): Unit = {
@@ -237,12 +239,14 @@ class KafkaTopicsMultipleEvents(
       override def onQueryStarted(queryStarted: QueryStartedEvent): Unit = {
         println("Query started: " + queryStarted.id)
       }
+
       override def onQueryTerminated(queryTerminated: QueryTerminatedEvent): Unit = {
         println("Query terminated: " + queryTerminated.id)
       }
+
       override def onQueryProgress(queryProgress: QueryProgressEvent): Unit = {
-//        println("Query made progress: " + queryProgress.progress)
-//        println("Query made progress: " + queryProgress.progress.id)
+        //        println("Query made progress: " + queryProgress.progress)
+        //        println("Query made progress: " + queryProgress.progress.id)
         if (toStop.contains(queryProgress.progress.id)) {
           currentSparkSession.streams.get(queryProgress.progress.id).stop()
         }
