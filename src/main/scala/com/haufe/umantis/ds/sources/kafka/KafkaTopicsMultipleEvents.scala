@@ -223,7 +223,9 @@ class KafkaTopicsMultipleEvents(
 
   def start(topic: Topic, event: Event): Unit = {
     val bridge = queries(topic)(event)
-    bridge.streamingQuery = bridge.dataStreamWriter.start(bridge.filePath)
+    if (!bridge.streamingQuery.isActive) {
+      bridge.streamingQuery = bridge.dataStreamWriter.start(bridge.filePath)
+    }
   }
 
   def start(topic: Topic): Unit = {
@@ -248,7 +250,7 @@ class KafkaTopicsMultipleEvents(
 
   def createSnapshot(topic: Topic, event: Event): Path = {
     val bridge = queries(topic)(event)
-        val conf = currentSparkSession.sparkContext.hadoopConfiguration
+    val conf = currentSparkSession.sparkContext.hadoopConfiguration
     val fs = org.apache.hadoop.fs.FileSystem.get(conf)
     fs.createSnapshot(new Path(s"/${bridge.filePath}"))
   }
