@@ -30,7 +30,7 @@ dependencyOverrides ++= Seq(
 
 
 lazy val sparkDependencies = {
-  val sparkVer = "2.4.3"
+  val sparkVer = "2.4.4"
   Seq(
     "org.apache.spark" %% "spark-core" % sparkVer,
     "org.apache.spark" %% "spark-sql" % sparkVer,
